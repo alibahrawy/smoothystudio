@@ -92,6 +92,25 @@ const studioApi = {
     ipcRenderer.invoke('studio:save-workspace', json) as Promise<
       { ok: true; bytes: number } | { ok: false; error: string }
     >,
+  /** On-device background removal. Progress arrives on a channel keyed by runId. */
+  removeBackground: (
+    args: { imageDataUrl: string; edgeSoftness?: number },
+    onProgress?: (p: { ratio: number; note?: string }) => void,
+  ): Promise<{ ok: true; imageDataUrl: string } | { ok: false; error: string }> => {
+    const runId = Math.random().toString(36).slice(2)
+    const listener = (
+      _e: Electron.IpcRendererEvent,
+      p: { runId: string; ratio: number; note?: string },
+    ): void => {
+      if (p.runId === runId) onProgress?.({ ratio: p.ratio, note: p.note })
+    }
+    ipcRenderer.on('studio:remove-bg:progress', listener)
+    return (
+      ipcRenderer.invoke('studio:remove-bg', { ...args, runId }) as Promise<
+        { ok: true; imageDataUrl: string } | { ok: false; error: string }
+      >
+    ).finally(() => ipcRenderer.removeListener('studio:remove-bg:progress', listener))
+  },
   savePng: (args: {
     dataBase64: string
     suggestedName: string

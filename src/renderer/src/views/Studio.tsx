@@ -25,26 +25,33 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/button'
+import { Logo } from '../components/Logo'
 import { Field } from '../components/ui/field'
 import { Input } from '../components/ui/input'
 import { Slider } from '../components/ui/slider'
 import { ColorPicker } from '../components/ui/color-picker'
 import { cn } from '../lib/cn'
 /**
- * Background removal runs on the server rather than a local worker: this app
- * ships no media pipeline, and the same endpoint already powers AI Photos, so
- * both halves share one implementation and one credit cost.
+ * Background removal runs on device, in a utility process.
  *
- * The endpoint takes either a remote URL or a data URL and answers with a
- * hosted blob URL; Studio documents embed their images, so the result is
- * pulled back down to a data URL before it lands on the layer.
+ * It briefly went through the hosted endpoint, which was a mistake: that route
+ * caps request bodies at a few megabytes and a full-resolution PNG data URL is
+ * past the limit before it starts, so it failed with
+ * `413 FUNCTION_PAYLOAD_TOO_LARGE`. Locally there is no size limit, no
+ * per-image cost, the higher-accuracy model is used, and the photo never
+ * leaves the machine.
  */
-async function removeBackgroundViaApi(sourceDataUrl: string): Promise<string> {
-  const res = await window.aiPhotos.removeBg({ imageUrl: sourceDataUrl })
-  if (!res?.imageUrl) throw new Error('remove-background-failed')
-  const back = await window.aiPhotos.fetchDataUrl({ imageUrl: res.imageUrl })
-  if ('error' in back) throw new Error(back.error)
-  return back.dataUrl
+async function removeBackgroundLocally(
+  sourceDataUrl: string,
+  edgeSoftness: number,
+  onProgress?: (p: { ratio: number; note?: string }) => void,
+): Promise<string> {
+  const res = await window.studioApi.removeBackground(
+    { imageDataUrl: sourceDataUrl, edgeSoftness },
+    onProgress,
+  )
+  if (!res.ok) throw new Error(res.error)
+  return res.imageDataUrl
 }
 import {
   CANVAS_PRESETS, DEFAULT_FONTS, applyPreset, batchLines, defaultStudioDoc, docToPreset,
@@ -528,9 +535,12 @@ export function Studio(): JSX.Element {
     setBgRemoveError(null)
     setBgRemoveProgress({ ratio: 0 })
     try {
-      const cutout = await removeBackgroundViaApi(source)
+      const cutout = await removeBackgroundLocally(
+        source,
+        doc.image.bgRemovalEdgeSoftness,
+        setBgRemoveProgress,
+      )
       setDoc((d) => ({ ...d, image: { ...d.image, dataUrl: cutout, bgRemoved: true } }))
-      window.dispatchEvent(new Event('credits:refresh'))
     } catch (e) {
       setBgRemoveError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -899,16 +909,15 @@ export function Studio(): JSX.Element {
     <div className="flex h-full min-h-0 gap-6">
       {/* ── Controls ─────────────────────────────────────── */}
       <div className="flex w-80 shrink-0 flex-col">
-        <header className="mb-3 flex items-start justify-between gap-2">
+        <header className="mb-3 flex items-center justify-between gap-2">
+          {/* The title bar already says SmoothyStudio, so this panel only needs
+              to surface a save failure — never let one pass silently. */}
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Studio</h1>
             {saveError ? (
-              <p className="mt-1 truncate text-sm text-destructive" title={saveError}>
+              <p className="truncate text-sm text-destructive" title={saveError}>
                 Not saving: {saveError}
               </p>
-            ) : (
-              <p className="mt-1 text-sm text-muted-foreground">Design titles, export transparent PNGs.</p>
-            )}
+            ) : null}
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon-sm" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (⌘Z)">
@@ -1722,6 +1731,15 @@ export function Studio(): JSX.Element {
             <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDoc(defaultStudioDoc())}>
               <RotateCcw /> Reset to defaults
             </Button>
+          </div>
+
+          {/* Wordmark sits at the foot of the controls rather than the head —
+              the panel should open on the layers, not on branding. */}
+          <div className="flex items-center gap-1.5 border-t border-border pt-3 opacity-60">
+            <Logo className="size-4" />
+            <span className="text-sm font-medium tracking-tight text-muted-foreground">
+              SmoothyStudio
+            </span>
           </div>
         </div>
       </div>
@@ -3750,8 +3768,10 @@ function ExtraImageCard({
     setError(null)
     setProgress({ ratio: 0 })
     try {
-      onChange({ dataUrl: await removeBackgroundViaApi(source), bgRemoved: true })
-      window.dispatchEvent(new Event('credits:refresh'))
+      onChange({
+        dataUrl: await removeBackgroundLocally(source, item.bgRemovalEdgeSoftness, setProgress),
+        bgRemoved: true,
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {

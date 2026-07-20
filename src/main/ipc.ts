@@ -4,6 +4,7 @@ import path from 'node:path'
 import { store } from './store'
 import { signIn, signOut, getAuthState, restoreAuthFromDisk, armExpiryWatch } from './auth-service'
 import { getCredits } from './credits-service'
+import { removeBackgroundLocal } from './bg-service'
 import {
   generateReaction,
   removeBackground,
@@ -150,6 +151,29 @@ export function registerIpc(): void {
       return { error: err instanceof Error ? err.message : String(err) }
     }
   })
+
+  /**
+   * Background removal, on device.
+   *
+   * Deliberately not the hosted endpoint: that caps request bodies at a few
+   * megabytes and a full-resolution PNG data URL exceeds it before it starts
+   * (`413 FUNCTION_PAYLOAD_TOO_LARGE`). Local also means no per-image cost and
+   * the user's photos never leave the machine.
+   */
+  ipcMain.handle(
+    'studio:remove-bg',
+    async (e, args: { imageDataUrl: string; edgeSoftness?: number; runId: string }) => {
+      const sender = e.sender
+      try {
+        const imageDataUrl = await removeBackgroundLocal(args, (p) => {
+          if (!sender.isDestroyed()) sender.send('studio:remove-bg:progress', { runId: args.runId, ...p })
+        })
+        return { ok: true as const, imageDataUrl }
+      } catch (err) {
+        return { ok: false as const, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
 
   /* ── Studio workspace persistence ──────────────────────────────────── */
 

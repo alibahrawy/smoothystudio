@@ -53,10 +53,14 @@ npm run build
 
 ## Business model
 
-The editor is free. The AI half costs credits, metered against the same
+The editor is free. Image *generation* costs credits, metered against the same
 `/api/credits` rail the web app already uses — inference has real marginal cost, composition
-doesn't. Background removal in Studio goes through the same endpoint as AI Photos, so it's one
-implementation and one credit cost.
+doesn't.
+
+**Background removal runs on device** and costs nothing. It uses the ISNet model bundled with
+`@imgly/background-removal-node` in a `utilityProcess`, so photos never leave the machine, there
+is no per-image cost, and there is no upload size limit — a full-resolution PNG exceeds a hosted
+function's request-body cap before it even starts.
 
 ## MCP server
 

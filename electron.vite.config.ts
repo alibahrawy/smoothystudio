@@ -10,6 +10,17 @@ export default defineConfig({
         '@shared': resolve('src/shared'),
       },
     },
+    build: {
+      rollupOptions: {
+        // The background-removal worker is forked by path, so it needs to be a
+        // sibling output at out/main/workers/bg-host.js rather than inlined.
+        input: {
+          index: resolve('src/main/index.ts'),
+          'workers/bg-host': resolve('src/main/workers/bg-host.ts'),
+        },
+        output: { entryFileNames: '[name].js', chunkFileNames: 'chunks/[name]-[hash].js' },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],

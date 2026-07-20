@@ -79,6 +79,10 @@ declare global {
       saveWorkspace: (
         json: string,
       ) => Promise<{ ok: true; bytes: number } | { ok: false; error: string }>
+      removeBackground: (
+        args: { imageDataUrl: string; edgeSoftness?: number },
+        onProgress?: (p: { ratio: number; note?: string }) => void,
+      ) => Promise<{ ok: true; imageDataUrl: string } | { ok: false; error: string }>
       savePng: (args: {
         dataBase64: string
         suggestedName: string
