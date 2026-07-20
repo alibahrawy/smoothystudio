@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SmoothyEdit Desktop</title>
+    <!--
+      CSP: 'unsafe-inline' + 'unsafe-eval' on script-src is required for Vite's
+      HMR client (injectIntoGlobalHook), @vite/client websocket, and React
+      Refresh. Acceptable here because (a) the renderer only loads same-origin
+      assets, and (b) Electron's contextIsolation prevents the renderer from
+      reaching Node APIs even if a script-injection were exploited.
+      For production builds we should set a stricter CSP via webRequest headers
+      in main (no inline/eval), but the meta-tag is shared between dev/prod
+      so keep it permissive enough for the dev path until then.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: app: smoothy-media: https://*.public.blob.vercel-storage.com; media-src 'self' blob: app: smoothy-media:; connect-src 'self' https://smoothyedit.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://*.smoothyedit.com"
+    />
+    <!-- All four brand fonts (Montserrat sans / Merriweather serif / Source Code Pro mono / Caveat handwritten) — same set as app/layout.tsx. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Merriweather:wght@300;400;700;900&family=Montserrat:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Caption display faces (Tools → Captions style picker): heavy weights for
+         the canvas renderer + single-weight display fonts. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@700;800;900&family=Poppins:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

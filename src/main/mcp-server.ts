@@ -1,0 +1,214 @@
+import * as http from 'node:http'
+import { randomUUID } from 'node:crypto'
+import type { BrowserWindow } from 'electron'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { z } from 'zod'
+
+/**
+ * MCP server, hosted inside the running app.
+ *
+ * Rendering needs a DOM canvas, so every tool call is forwarded into the
+ * renderer through `executeJavaScript` and answered by `window.__studioMcp`.
+ * Hosting it here rather than shipping a separate headless binary means the
+ * agent renders with exactly the same code path the UI uses — no second
+ * renderer to keep in sync, and no swapping canvas implementations.
+ *
+ * Transport is streamable HTTP on a loopback port so an agent can attach to the
+ * app while the user has it open. It binds to 127.0.0.1 only.
+ */
+export const MCP_PORT = 3777
+
+let httpServer: http.Server | null = null
+
+/** Run an expression against `window.__studioMcp` in the renderer. */
+async function callRenderer<T>(win: BrowserWindow, expression: string): Promise<T> {
+  if (win.isDestroyed()) throw new Error('window-destroyed')
+  return (await win.webContents.executeJavaScript(expression, true)) as T
+}
+
+interface RenderResult {
+  pngBase64: string
+  width: number
+  height: number
+}
+
+/** MCP image content — returning the pixels inline is what lets a vision model
+ *  critique its own thumbnail and iterate, rather than emitting and hoping. */
+function imageContent(r: RenderResult): { type: 'image'; data: string; mimeType: string } {
+  return { type: 'image', data: r.pngBase64, mimeType: 'image/png' }
+}
+
+function buildServer(win: BrowserWindow): McpServer {
+  const server = new McpServer(
+    { name: 'smoothystudio', version: '0.1.0' },
+    {
+      instructions:
+        'Design thumbnails and title cards. Call get_capabilities first to learn the ' +
+        'document vocabulary, the available templates, and the effect names. Then send a ' +
+        'PARTIAL document to render_thumbnail — it is merged over the defaults, or over a ' +
+        'template when you pass templateId. Prefer starting from a template: it fixes the ' +
+        'composition so you only supply the words. Rendered PNGs come back inline, so look ' +
+        'at the result and iterate if the layout reads badly. Renders open as canvases in the ' +
+        'running app by default so the user can finish them by hand — treat your output as a ' +
+        'strong starting point, not a final file. get_capabilities also returns a catalogue of ' +
+        'every layer and effect with what each is for; read it before reaching for effects.',
+    },
+  )
+
+  server.registerTool(
+    'get_capabilities',
+    {
+      title: 'Get capabilities',
+      description:
+        'The design vocabulary: canvas presets, available fonts, thumbnail templates (with ' +
+        'guidance on when to use each), layer kinds, effect names and pipeline order, and the ' +
+        'shape of a document patch. Call this before composing anything.',
+    },
+    async () => {
+      const caps = await callRenderer<unknown>(win, 'window.__studioMcp.capabilities()')
+      return { content: [{ type: 'text', text: JSON.stringify(caps, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'render_thumbnail',
+    {
+      title: 'Render thumbnail',
+      description:
+        'Render one thumbnail and return it as a PNG image. `doc` is a PARTIAL document ' +
+        'merged one level deep over the defaults (or over the template named by templateId). ' +
+        'By default the design also opens as a new canvas in the running SmoothyStudio app, ' +
+        'so the user can finish it by hand — existing canvases are never overwritten. ' +
+        'Look at the returned image and re-render if the composition needs fixing.',
+      inputSchema: {
+        doc: z
+          .any()
+          .optional()
+          .describe('Partial StudioDoc object — e.g. { text, font: { size, color }, canvas: { width, height } }'),
+        templateId: z
+          .string()
+          .optional()
+          .describe('Template to start from; see get_capabilities. Strongly recommended.'),
+        openInApp: z
+          .boolean()
+          .optional()
+          .describe('Open the design as a canvas in the app for hand finishing. Default true.'),
+        name: z.string().optional().describe('Tab name for the canvas opened in the app.'),
+      },
+    },
+    async ({ doc, templateId, openInApp, name }) => {
+      const r = await callRenderer<RenderResult>(
+        win,
+        `window.__studioMcp.render(${JSON.stringify(doc ?? {})}, ${JSON.stringify(templateId ?? null)} ?? undefined, ${JSON.stringify(openInApp ?? true)}, ${JSON.stringify(name ?? null)} ?? undefined)`,
+      )
+      if (openInApp !== false && !win.isDestroyed()) {
+        // Bring the app forward so the user sees what was just made.
+        if (win.isMinimized()) win.restore()
+        win.show()
+      }
+      return {
+        content: [
+          imageContent(r),
+          {
+            type: 'text',
+            text:
+              `Rendered ${r.width}×${r.height}.` +
+              (openInApp === false ? '' : ' Opened as a canvas in SmoothyStudio for hand finishing.'),
+          },
+        ],
+      }
+    },
+  )
+
+  server.registerTool(
+    'render_variants',
+    {
+      title: 'Render variants',
+      description:
+        'Render several thumbnails that share one design. `doc` is the common base; each entry ' +
+        'in `overrides` is a further partial document merged on top — e.g. a different `text` ' +
+        'per variant. Returns one PNG per override, so you can compare them side by side.',
+      inputSchema: {
+        doc: z.any().optional().describe('Shared base — partial StudioDoc object'),
+        overrides: z
+          .array(z.any())
+          .min(1)
+          .max(24)
+          .describe('One partial document per variant, e.g. [{ text: "A" }, { text: "B" }]'),
+        templateId: z.string().optional().describe('Template to start from; see get_capabilities.'),
+        openInApp: z
+          .boolean()
+          .optional()
+          .describe('Open every variant as a canvas in the app. Default false — pick one first, then render it with openInApp.'),
+      },
+    },
+    async ({ doc, overrides, templateId, openInApp }) => {
+      const results = await callRenderer<RenderResult[]>(
+        win,
+        `window.__studioMcp.renderVariants(${JSON.stringify(doc ?? {})}, ${JSON.stringify(
+          overrides,
+        )}, ${JSON.stringify(templateId ?? null)} ?? undefined, ${JSON.stringify(openInApp ?? false)})`,
+      )
+      return {
+        content: [
+          { type: 'text', text: `Rendered ${results.length} variants.` },
+          ...results.map(imageContent),
+        ],
+      }
+    },
+  )
+
+  return server
+}
+
+export async function startMcpServer(win: BrowserWindow): Promise<void> {
+  if (httpServer) return
+
+  // Stateless: a fresh server + transport per request. Thumbnail rendering has
+  // no session state worth keeping, and this sidesteps session-id bookkeeping
+  // entirely.
+  httpServer = http.createServer((req, res) => {
+    if (!req.url?.startsWith('/mcp')) {
+      res.writeHead(404).end()
+      return
+    }
+    void (async () => {
+      const chunks: Buffer[] = []
+      for await (const c of req) chunks.push(c as Buffer)
+      const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : undefined
+
+      const server = buildServer(win)
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+      res.on('close', () => {
+        void transport.close()
+        void server.close()
+      })
+      await server.connect(transport)
+      await transport.handleRequest(req, res, body)
+    })().catch((err) => {
+      console.error('[mcp] request failed', err)
+      if (!res.headersSent) res.writeHead(500)
+      res.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+          id: randomUUID(),
+        }),
+      )
+    })
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    httpServer!.once('error', reject)
+    // Loopback only — never expose the render surface beyond this machine.
+    httpServer!.listen(MCP_PORT, '127.0.0.1', () => resolve())
+  })
+  console.log(`[mcp] listening on http://127.0.0.1:${MCP_PORT}/mcp`)
+}
+
+export async function stopMcpServer(): Promise<void> {
+  if (!httpServer) return
+  await new Promise<void>((resolve) => httpServer!.close(() => resolve()))
+  httpServer = null
+}

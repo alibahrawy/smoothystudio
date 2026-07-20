@@ -1,0 +1,57 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>SmoothyStudio</title>
+  <!--
+    Built on the same bones as the SmoothyRec mark: a macOS squircle in a navy
+    gradient, ONE bold asymmetric silhouette in the brand accent, and a single
+    circular counter punched clean through it.
+    Where SmoothyRec's outline is a camera, this one is abstract — two offset
+    planes fused into a single stepped form, which is what a layered composition
+    looks like from the side. It reads as a shape first and a meaning second,
+    which is what keeps the family feeling designed rather than clip-art. The
+    offset is deliberately large: a small step reads as one blocky rectangle
+    with dents, not as two planes.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="512" y1="64" x2="512" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A1B38"/>
+      <stop offset="1" stop-color="#000418"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="184" y1="230" x2="840" y2="794" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7FB6FF"/>
+      <stop offset="1" stop-color="#2A6FEF"/>
+    </linearGradient>
+    <filter id="lift" x="114" y="170" width="796" height="700" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000418" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+
+  <g filter="url(#lift)">
+    <path fill-rule="evenodd" clip-rule="evenodd" fill="url(#accent)" d="
+      M 428 230
+      H 792
+      A 48 48 0 0 1 840 278
+      V 542
+      A 48 48 0 0 1 792 590
+      H 684
+      A 40 40 0 0 0 644 630
+      V 746
+      A 48 48 0 0 1 596 794
+      H 232
+      A 48 48 0 0 1 184 746
+      V 482
+      A 48 48 0 0 1 232 434
+      H 340
+      A 40 40 0 0 0 380 394
+      V 278
+      A 48 48 0 0 1 428 230
+      Z
+      M 372 632
+      m -88 0
+      a 88 88 0 1 0 176 0
+      a 88 88 0 1 0 -176 0
+      Z
+    "/>
+  </g>
+</svg>
