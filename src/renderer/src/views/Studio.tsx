@@ -25,7 +25,6 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '../store'
 import { Button } from '../components/ui/button'
-import { Logo } from '../components/Logo'
 import { Field } from '../components/ui/field'
 import { Input } from '../components/ui/input'
 import { Slider } from '../components/ui/slider'
@@ -1731,15 +1730,6 @@ export function Studio(): JSX.Element {
             <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDoc(defaultStudioDoc())}>
               <RotateCcw /> Reset to defaults
             </Button>
-          </div>
-
-          {/* Wordmark sits at the foot of the controls rather than the head —
-              the panel should open on the layers, not on branding. */}
-          <div className="flex items-center gap-1.5 border-t border-border pt-3 opacity-60">
-            <Logo className="size-4" />
-            <span className="text-sm font-medium tracking-tight text-muted-foreground">
-              SmoothyStudio
-            </span>
           </div>
         </div>
       </div>

@@ -72,11 +72,6 @@ export function App(): JSX.Element {
     <div className="app-shell flex h-screen flex-col">
       <header className="titlebar flex h-titlebar shrink-0 select-none items-center gap-2 border-b border-border px-2">
         {window.smoothy.platform === 'darwin' ? <div className="w-[76px] shrink-0" aria-hidden /> : null}
-        <div className="flex shrink-0 items-center gap-1.5 pr-1.5">
-          <Logo className="size-5" />
-          <span className="text-base font-semibold tracking-tight text-foreground">SmoothyStudio</span>
-        </div>
-        <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
         <nav className="flex items-center gap-0.5" aria-label="Primary">
           <button type="button" className={tabCls(tab === 'studio')} onClick={() => setTab('studio')}>
             <Type /> Studio
@@ -134,6 +129,15 @@ export function App(): JSX.Element {
           <AiPhotos />
         </div>
       </main>
+
+      {/* Status bar. Sits outside <main> so it stays put while the panels
+          scroll, and shows on both tabs. */}
+      <footer className="flex h-7 shrink-0 select-none items-center gap-1.5 border-t border-border px-3">
+        <Logo className="size-3.5" />
+        <span className="text-sm font-medium tracking-tight text-muted-foreground">
+          SmoothyStudio
+        </span>
+      </footer>
     </div>
   )
 }
