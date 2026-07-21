@@ -35,6 +35,39 @@ export interface DocMeasurement {
   layers: LayerBox[]
 }
 
+const PRIMARIES = ['logo', 'border', 'image', 'shape', 'text', 'icon'] as const
+
+/**
+ * A document in which only `id` can draw.
+ *
+ * Setting `layerOrder: [id]` is NOT enough: `effectiveLayerOrder` is
+ * deliberately self-healing and puts every missing primary back, so a
+ * "one layer" render quietly drew the whole composition and every box came
+ * back as the bounds of the entire design. Exclusion has to go through
+ * `removedPrimaries`, which that function actually honours, plus emptying the
+ * extras.
+ */
+function isolate(doc: StudioDoc, id: string): StudioDoc {
+  const isPrimary = (PRIMARIES as readonly string[]).includes(id)
+  const keepExtra = <T extends { id: string }>(list: T[] | undefined): T[] =>
+    (list ?? []).filter((e) => e.id === id)
+  return {
+    ...doc,
+    canvas: { ...doc.canvas, bg: 'transparent', pattern: { ...doc.canvas.pattern, enabled: false } },
+    layers: { ...doc.layers, canvasBg: false },
+    removedPrimaries: PRIMARIES.filter((p) => p !== id),
+    layerOrder: isPrimary ? [id] : [],
+    extraTexts: keepExtra(doc.extraTexts),
+    extraShapes: keepExtra(doc.extraShapes),
+    extraIcons: keepExtra(doc.extraIcons),
+    extraImages: keepExtra(doc.extraImages),
+    extraBorders: keepExtra(doc.extraBorders),
+    extraLogos: keepExtra(doc.extraLogos),
+    canvasFx: undefined,
+    canvasGrade: undefined,
+  }
+}
+
 /** Tight bounding box of the non-transparent pixels on a canvas. */
 function opaqueBounds(
   ctx: CanvasRenderingContext2D,
@@ -88,14 +121,7 @@ export function measureDoc(doc: StudioDoc, sampleWidth = 640): DocMeasurement {
     const ctx = off.getContext('2d', { willReadFrequently: true })
     if (!ctx) continue
     ctx.scale(scale, scale)
-    // Render this layer alone: no background, nothing else in the stack.
-    renderStudioDoc(ctx, {
-      ...doc,
-      canvas: { ...doc.canvas, bg: 'transparent', pattern: { ...doc.canvas.pattern, enabled: false } },
-      layerOrder: [id],
-      canvasFx: undefined,
-      canvasGrade: undefined,
-    })
+    renderStudioDoc(ctx, isolate(doc, id))
     const b = opaqueBounds(ctx, sw, sh)
     if (!b) {
       layers.push({ id, x: 0, y: 0, width: 0, height: 0, centerX: 0, centerY: 0, empty: true })

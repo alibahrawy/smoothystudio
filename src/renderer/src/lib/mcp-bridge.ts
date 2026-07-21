@@ -146,6 +146,11 @@ export const studioMcp = {
           'Do not guess coordinates. Call measure to get every layer\'s real box, then place ' +
           'things relative to those numbers — or pass an anchor to measure and let it compute ' +
           'the x/y for you.',
+        shadows:
+          'Boxes are measured from pixels, so a soft shadow or glow counts as part of the ' +
+          'layer — a 46px drop shadow can add ~130px below the glyphs. When you want something ' +
+          'to sit under the LETTERS, measure a copy of the doc with that shadow/glow disabled, ' +
+          'then render with it back on.',
       },
       designGuidance: DESIGN_GUIDANCE,
       documentShape: {
