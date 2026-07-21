@@ -342,3 +342,54 @@ export const DESIGN_GUIDANCE = [
   'Effects are seasoning. A grade plus a vignette plus a shadow is usually the whole recipe; reach for wave, turbulence or blinds only when the concept calls for it.',
   'Look at the PNG that comes back. If the title collides with the subject or overflows the frame, change it and render again.',
 ]
+
+/**
+ * Which face to reach for.
+ *
+ * The font list alone is not enough — an agent handed 26 names picks the first
+ * one every time, which is why everything came out in the system UI face. This
+ * says what each group is *for*.
+ */
+export const FONT_GUIDE: Array<{ group: string; fonts: string[]; useFor: string }> = [
+  {
+    group: 'Heavy display',
+    fonts: ['Impact', 'Arial Black', 'Phosphate', 'Haettenschweiler'],
+    useFor:
+      'Thumbnail headlines. Maximum weight at small sizes — this is what most high-performing ' +
+      'thumbnails actually use. Reach here first for a hook, not for a UI font.',
+  },
+  {
+    group: 'Condensed',
+    fonts: ['DIN Condensed', 'Avenir Next Condensed', 'Helvetica Neue Condensed Bold'],
+    useFor:
+      'Long headlines that must stay big. Condensed faces fit more characters per line without ' +
+      'dropping the point size, so a six-word hook still reads at 200px wide.',
+  },
+  {
+    group: 'Geometric sans',
+    fonts: ['Futura', 'DIN Alternate', 'Avenir Next'],
+    useFor: 'Clean, modern, slightly premium. Good for product and tech subjects.',
+  },
+  {
+    group: 'Neutral sans',
+    fonts: ['SF Pro Display', 'Helvetica Neue', 'Arial'],
+    useFor:
+      'Captions, subtitles, eyebrows and UI-ish labels. Safe but characterless — avoid for the ' +
+      'headline unless the subject is deliberately corporate.',
+  },
+  {
+    group: 'Editorial serif',
+    fonts: ['Didot', 'Bodoni 72', 'Baskerville', 'Palatino'],
+    useFor: 'Fashion, film, essays, anything wanting authority or elegance over shout.',
+  },
+  {
+    group: 'Slab & typewriter',
+    fonts: ['Rockwell', 'American Typewriter', 'Courier New'],
+    useFor: 'Documentary, retro, technical or handmade subjects.',
+  },
+  {
+    group: 'Character',
+    fonts: ['Marker Felt', 'Chalkboard SE', 'Copperplate'],
+    useFor: 'Use sparingly and deliberately — casual, handmade or vintage-formal registers.',
+  },
+]

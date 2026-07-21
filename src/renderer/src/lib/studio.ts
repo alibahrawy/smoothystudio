@@ -26,7 +26,7 @@ export * from './studio-effects'
 
 export type StudioMode = 'single' | 'bullet' | 'batch' | 'split'
 export type MaterialType = 'solid' | 'gradient' | 'glass'
-export type GradientDir = 'vertical' | 'horizontal' | 'diagonal'
+export type GradientDir = 'vertical' | 'horizontal' | 'diagonal' | 'radial'
 export type HAlign = 'left' | 'center' | 'right'
 export type VAlign = 'top' | 'middle' | 'bottom'
 export type PatternType = 'grid' | 'dots' | 'lines'
@@ -81,6 +81,10 @@ export interface ShapeStyle {
   x: number
   y: number
   color: string
+  /** Solid fill, or a two-colour ramp across the shape's bounds. */
+  material?: 'solid' | 'gradient'
+  gradientColor2?: string
+  gradientDirection?: GradientDir
   opacity: number
   stroke: EffectStroke
   shadow: EffectShadow
@@ -351,6 +355,11 @@ export interface StudioDoc {
     logo: boolean
   }
   layerOrder: string[]
+  /** Effects applied to the FINISHED composite rather than one layer — the
+   *  finishing pass (grade, vignette, grain) that per-layer effects cannot
+   *  express, because a layer's effects only touch its own pixels. */
+  canvasFx?: LayerEffects
+  canvasGrade?: EffectColorGrade
   /** Color grade for the primary title text (the other layers carry their own
    *  `grade` inside their style object). */
   grade?: EffectColorGrade
@@ -381,8 +390,11 @@ export const CANVAS_PRESETS: CanvasPreset[] = [
 export const DEFAULT_FONTS: string[] = [
   'SF Pro Display',
   'Helvetica Neue',
+  'Helvetica Neue Condensed Bold',
   'Arial',
   'Arial Black',
+  'Avenir Next Condensed',
+  'Didot',
   'American Typewriter',
   'Avenir Next',
   'Baskerville',
@@ -646,7 +658,14 @@ function gradientForBounds(
   c2: string,
 ): CanvasGradient {
   let g: CanvasGradient
-  if (dir === 'horizontal') g = ctx.createLinearGradient(x1, y1, x2, y1)
+  if (dir === 'radial') {
+    // Centre-out. The radius reaches the corner so the far colour actually
+    // lands inside the frame instead of being clipped at the edges.
+    const cx = (x1 + x2) / 2
+    const cy = (y1 + y2) / 2
+    const r = Math.hypot(x2 - x1, y2 - y1) / 2
+    g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(1, r))
+  } else if (dir === 'horizontal') g = ctx.createLinearGradient(x1, y1, x2, y1)
   else if (dir === 'diagonal') g = ctx.createLinearGradient(x1, y1, x2, y2)
   else g = ctx.createLinearGradient(x1, y1, x1, y2)
   g.addColorStop(0, c1)
@@ -1234,7 +1253,19 @@ function drawOneShapeStyled(
     ctx.shadowOffsetX = s.shadow.x
     ctx.shadowOffsetY = s.shadow.y
   }
-  ctx.fillStyle = s.color
+  ctx.fillStyle =
+    s.material === 'gradient'
+      ? gradientForBounds(
+          ctx,
+          s.gradientDirection ?? 'vertical',
+          cx - w / 2,
+          cy - h / 2,
+          cx + w / 2,
+          cy + h / 2,
+          s.color,
+          s.gradientColor2 ?? s.color,
+        )
+      : s.color
   shapePath(ctx, s.type, cx, cy, w, h, s.cornerRadius)
   ctx.fill()
   if (s.pattern.enabled) {
@@ -2177,6 +2208,22 @@ function drawLayerEntry(
     return
   }
   drawLayerEntryRaw(octx, doc, entry, opts)
+
+  // Masking has to happen here rather than in the effects module: clipping to
+  // another layer means re-rendering that layer, which needs the document.
+  if (fx?.mask?.enabled && fx.mask.sourceId && fx.mask.sourceId !== entry) {
+    const mask = document.createElement('canvas')
+    mask.width = off.width
+    mask.height = off.height
+    const mctx = mask.getContext('2d')
+    if (mctx) {
+      drawLayerEntryRaw(mctx, doc, fx.mask.sourceId, opts)
+      octx.globalCompositeOperation = fx.mask.invert ? 'destination-out' : 'destination-in'
+      octx.drawImage(mask, 0, 0)
+      octx.globalCompositeOperation = 'source-over'
+    }
+  }
+
   const processed = applyLayerEffects(off, fx, grade)
   ctx.drawImage(processed, 0, 0, width, height)
 }
@@ -2261,6 +2308,22 @@ export function renderStudioDoc(
   const order = effectiveLayerOrder(doc)
   for (const entry of [...order].reverse()) {
     drawLayerEntry(ctx, doc, entry, opts)
+  }
+
+  // Finishing pass over everything drawn so far.
+  const cfx = normalizeFx(doc.canvasFx)
+  const cgrade = doc.canvasGrade
+  if (isFxActive(cfx) || !isNeutralGrade(cgrade)) {
+    const flat = document.createElement('canvas')
+    flat.width = Math.max(1, Math.round(width))
+    flat.height = Math.max(1, Math.round(height))
+    const fctx = flat.getContext('2d')
+    if (fctx) {
+      fctx.drawImage(ctx.canvas, 0, 0)
+      const processed = applyLayerEffects(flat, cfx, cgrade)
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(processed, 0, 0, width, height)
+    }
   }
 }
 

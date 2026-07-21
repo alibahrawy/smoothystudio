@@ -461,6 +461,7 @@ export function Studio(): JSX.Element {
   // when that's still empty, otherwise it lands as an extra layer so an
   // existing composition is never silently overwritten.
   const setTab = useAppStore((s) => s.setTab)
+  const setLiveDoc = useAppStore((s) => s.setLiveDoc)
   const pendingStudioImage = useAppStore((s) => s.pendingStudioImage)
   const clearPendingStudioImage = useAppStore((s) => s.clearPendingStudioImage)
   useEffect(() => {
@@ -489,6 +490,13 @@ export function Studio(): JSX.Element {
   // Documents an agent rendered arrive here and open as new canvases, so the
   // agent's output is a starting point the user can finish rather than a file
   // dropped somewhere. Existing canvases are never touched.
+  // Mirror the open document into the store so the MCP server can read what
+  // the user is looking at, and edit it rather than only creating new canvases.
+  useEffect(() => {
+    const name = canvases.find((c) => c.id === activeId)?.name ?? 'Canvas'
+    setLiveDoc({ name, doc })
+  }, [doc, activeId, canvases, setLiveDoc])
+
   const pendingStudioDocs = useAppStore((s) => s.pendingStudioDocs)
   const takePendingStudioDocs = useAppStore((s) => s.takePendingStudioDocs)
   useEffect(() => {

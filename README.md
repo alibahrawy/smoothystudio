@@ -79,9 +79,11 @@ would make an agent burn turns and produce incoherent layouts:
 
 | Tool | What it does |
 |---|---|
-| `get_capabilities` | The full design reference: canvas presets, fonts, templates with guidance on when to use each, a catalogue of every **layer** and every **effect** saying what it is for and what each field does, plus general thumbnail guidance. Call this first. |
+| `get_capabilities` | The full design reference: canvas presets, a **font guide** saying which faces suit what, templates, a catalogue of every **layer** and every **effect** with what it is for, and notes on masking, canvas-level effects and gradients. Call this first. |
+| `measure` | Where every layer actually lands — x, y, width, height, centre, plus the safe area. Optionally resolves **anchors** (`below`, `left-of`, `right`, …) into coordinates. Call this instead of guessing positions. |
 | `render_thumbnail` | One partial document → one PNG, returned **inline as an image**, and opened as a canvas in the running app so you can finish it by hand. Pass `openInApp: false` to skip that. |
 | `render_variants` | A shared base + a list of overrides → one PNG per variant. Does not open canvases by default — compare the images, then render your pick with `render_thumbnail`. |
+| `get_canvas` | The document the user currently has open, so an agent can **edit their work in place** rather than only creating new canvases. |
 
 Agent renders land in the app as **new canvases**; nothing you already have open is
 touched or overwritten.
@@ -109,6 +111,24 @@ the imagery to the model. Current set: `bold-centered`, `subject-right-text-left
 
 Rendered PNGs come back inline so a vision-capable model can look at its own output and iterate.
 That feedback loop is the point; a tool that only returned a file path couldn't close it.
+
+**Placement.** Don't guess coordinates — `measure` returns real boxes, and anchors compute
+positions for you:
+
+```jsonc
+{ "anchors": [{ "id": "sub", "width": 520, "height": 54,
+                "anchor": { "to": "text", "edge": "below", "gap": 40 } }] }
+```
+
+**Masking.** Any layer can be clipped to another layer's silhouette — imagery through
+knocked-out type, a photo inside a shape:
+
+```jsonc
+{ "image": { "fx": { "mask": { "enabled": true, "sourceId": "text" } } } }
+```
+
+**The finishing pass.** `doc.canvasFx` and `doc.canvasGrade` apply to the *composite*, not one
+layer — a vignette on `doc.fx` darkens the title's letters, which is almost never what you want.
 
 Effects live on a layer's `fx` object and the colour grade on its `grade` object, both optional:
 

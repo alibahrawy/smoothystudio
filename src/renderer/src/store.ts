@@ -24,6 +24,9 @@ interface RendererState extends Pick<AppState, 'theme' | 'signedIn' | 'user' | '
    * can produce several before Studio picks any up.
    */
   pendingStudioDocs: Array<{ name: string; doc: unknown }>
+  /** The document Studio currently has open, mirrored here so the MCP server
+   *  can read and edit it rather than only creating new canvases. */
+  liveDoc: { name: string; doc: unknown } | null
   setAuth: (v: { signedIn: boolean; user: PublicUser | null }) => void
   setTheme: (t: BrandTheme) => void
   setCredits: (c: { credits: number; tier: 'free' | 'pro' } | null) => void
@@ -32,6 +35,7 @@ interface RendererState extends Pick<AppState, 'theme' | 'signedIn' | 'user' | '
   sendImageToStudio: (dataUrl: string) => void
   clearPendingStudioImage: () => void
   openDocInStudio: (name: string, doc: unknown) => void
+  setLiveDoc: (v: { name: string; doc: unknown } | null) => void
   takePendingStudioDocs: () => Array<{ name: string; doc: unknown }>
 }
 
@@ -44,6 +48,7 @@ export const useAppStore = create<RendererState>((set, get) => ({
   tab: 'studio',
   pendingStudioImage: null,
   pendingStudioDocs: [],
+  liveDoc: null,
   setAuth: ({ signedIn, user }) => set({ signedIn, user }),
   setTheme: (theme) => set({ theme }),
   setCredits: (credits) => set({ credits }),
@@ -51,6 +56,7 @@ export const useAppStore = create<RendererState>((set, get) => ({
   setTab: (tab) => set({ tab }),
   sendImageToStudio: (dataUrl) => set({ pendingStudioImage: dataUrl, tab: 'studio' }),
   clearPendingStudioImage: () => set({ pendingStudioImage: null }),
+  setLiveDoc: (liveDoc) => set({ liveDoc }),
   openDocInStudio: (name, doc) =>
     set((s) => ({ pendingStudioDocs: [...s.pendingStudioDocs, { name, doc }], tab: 'studio' })),
   takePendingStudioDocs: () => {

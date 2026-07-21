@@ -219,7 +219,18 @@ export interface FxEcho {
   opacityDecay: number
 }
 
+/** Clip a layer to another layer's silhouette. */
+export interface FxMask {
+  enabled: boolean
+  /** Layer to clip against: a primary key ('image', 'shape', 'text', …) or an
+   *  extra layer's id. */
+  sourceId: string
+  /** Keep what overlaps the mask (default), or punch it out. */
+  invert?: boolean
+}
+
 export interface LayerEffects {
+  mask?: FxMask
   echo?: FxEcho
   crop?: FxCrop
   mosaic?: FxMosaic
@@ -301,6 +312,7 @@ export const defaultDuotone = (): FxDuotone => ({
 export const defaultBlinds = (): FxBlinds => ({
   enabled: false, completion: 40, direction: 'horizontal', width: 60,
 })
+export const defaultMask = (): FxMask => ({ enabled: false, sourceId: 'shape', invert: false })
 export const defaultEcho = (): FxEcho => ({
   enabled: false, copies: 4, offsetX: 24, offsetY: 24, scaleStep: 100, rotateStep: 0, opacityDecay: 60,
 })
@@ -311,7 +323,8 @@ export const defaultEcho = (): FxEcho => ({
 export function isFxActive(fx: LayerEffects | undefined): boolean {
   if (!fx) return false
   return Boolean(
-    fx.echo?.enabled ||
+    fx.mask?.enabled ||
+      fx.echo?.enabled ||
       fx.crop?.enabled ||
       fx.mosaic?.enabled ||
       fx.gaussianBlur?.enabled ||

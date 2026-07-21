@@ -49,7 +49,8 @@ function buildServer(win: BrowserWindow): McpServer {
         'PARTIAL document to render_thumbnail — it is merged over the defaults, or over a ' +
         'template when you pass templateId. Prefer starting from a template: it fixes the ' +
         'composition so you only supply the words. Rendered PNGs come back inline, so look ' +
-        'at the result and iterate if the layout reads badly. Renders open as canvases in the ' +
+        'at the result and iterate if the layout reads badly. Call measure rather than guessing ' +
+        'coordinates, and get_canvas to edit what the user already has open. Renders open as canvases in the ' +
         'running app by default so the user can finish them by hand — treat your output as a ' +
         'strong starting point, not a final file. get_capabilities also returns a catalogue of ' +
         'every layer and effect with what each is for; read it before reaching for effects.',
@@ -154,6 +155,61 @@ function buildServer(win: BrowserWindow): McpServer {
         content: [
           { type: 'text', text: `Rendered ${results.length} variants.` },
           ...results.map(imageContent),
+        ],
+      }
+    },
+  )
+
+  server.registerTool(
+    'measure',
+    {
+      title: 'Measure layers',
+      description:
+        'Where every layer actually lands: x, y, width, height and centre for each, plus the ' +
+        'safe area. Call this instead of guessing coordinates — it is the difference between ' +
+        'one render and five. Optionally pass `anchors` to have positions computed for you: ' +
+        "each entry is { id, width, height, anchor: { to, edge, gap } } where `to` is a layer " +
+        "id or 'canvas' and `edge` is left|right|top|bottom|center|below|above|left-of|right-of.",
+      inputSchema: {
+        doc: z.any().optional().describe('Partial StudioDoc object'),
+        templateId: z.string().optional().describe('Template to start from'),
+        anchors: z
+          .array(z.any())
+          .optional()
+          .describe('Placements to resolve: { id, width, height, anchor: { to, edge, gap } }'),
+      },
+    },
+    async ({ doc, templateId, anchors }) => {
+      const m = await callRenderer<unknown>(
+        win,
+        `window.__studioMcp.measure(${JSON.stringify(doc ?? {})}, ${JSON.stringify(
+          templateId ?? null,
+        )} ?? undefined, ${JSON.stringify(anchors ?? null)} ?? undefined)`,
+      )
+      return { content: [{ type: 'text', text: JSON.stringify(m, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'get_canvas',
+    {
+      title: 'Get the open canvas',
+      description:
+        'The document the user currently has open in SmoothyStudio, as a full StudioDoc. Use ' +
+        'this to edit their work in place — read it, change what was asked for, and render it ' +
+        'back — rather than starting from scratch and losing everything else on the canvas.',
+    },
+    async () => {
+      const cur = await callRenderer<{ name: string; doc: unknown } | null>(
+        win,
+        'window.__studioMcp.currentCanvas()',
+      )
+      if (!cur) {
+        return { content: [{ type: 'text', text: 'No canvas is open.' }] }
+      }
+      return {
+        content: [
+          { type: 'text', text: `Open canvas: ${cur.name}\n\n${JSON.stringify(cur.doc, null, 2)}` },
         ],
       }
     },

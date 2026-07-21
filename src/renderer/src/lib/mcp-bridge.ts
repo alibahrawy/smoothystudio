@@ -12,7 +12,8 @@ import {
   type StudioDoc,
 } from './studio'
 import { STUDIO_TEMPLATES, templateById } from './studio-templates'
-import { DESIGN_GUIDANCE, EFFECT_DOCS, LAYER_DOCS } from './studio-docs'
+import { DESIGN_GUIDANCE, EFFECT_DOCS, FONT_GUIDE, LAYER_DOCS } from './studio-docs'
+import { measureDoc, resolveAnchor, type Anchor, type DocMeasurement } from './studio-measure'
 import { useAppStore } from '../store'
 
 /**
@@ -97,6 +98,7 @@ export const studioMcp = {
     return {
       canvasPresets: CANVAS_PRESETS,
       fonts: DEFAULT_FONTS,
+      fontGuide: FONT_GUIDE,
       templates: STUDIO_TEMPLATES.map((t) => ({
         id: t.id,
         label: t.label,
@@ -120,6 +122,31 @@ export const studioMcp = {
         catalog: EFFECT_DOCS,
       },
       gradeFields: Object.keys(defaultColorGrade()),
+      canvasEffects: {
+        note:
+          'doc.canvasFx and doc.canvasGrade apply to the FINISHED composite, not one layer. ' +
+          'Use these for the finishing pass — a vignette or grade on doc.fx darkens the title ' +
+          'text itself, which is almost never what you want.',
+      },
+      masking: {
+        note:
+          "Any layer's fx.mask clips it to another layer's silhouette: " +
+          "{ enabled: true, sourceId: 'shape' } draws the layer only where that shape is. " +
+          'Set invert:true to punch it out instead. This is how you put a photo inside a ' +
+          'circle, or show imagery through knocked-out text.',
+      },
+      gradients: {
+        note:
+          "gradientDirection accepts 'vertical' | 'horizontal' | 'diagonal' | 'radial'. " +
+          'Radial on the canvas background gives a real centre glow — do not fake one with a ' +
+          'blurred circle. Shapes take material:"gradient" with gradientColor2 too.',
+      },
+      placement: {
+        note:
+          'Do not guess coordinates. Call measure to get every layer\'s real box, then place ' +
+          'things relative to those numbers — or pass an anchor to measure and let it compute ' +
+          'the x/y for you.',
+      },
       designGuidance: DESIGN_GUIDANCE,
       documentShape: {
         note:
@@ -171,6 +198,35 @@ export const studioMcp = {
       if (openInApp) useAppStore.getState().openDocInStudio(`Variant ${i + 1}`, doc)
     }
     return out
+  },
+
+  /**
+   * Where every layer actually lands, plus optional anchor resolution.
+   *
+   * This is the tool that removes the render-look-nudge loop: measure once and
+   * place from real numbers instead of guessing and re-rendering.
+   */
+  async measure(
+    patch: unknown,
+    templateId?: string,
+    anchors?: Array<{ id: string; anchor: Anchor; width: number; height: number }>,
+  ): Promise<DocMeasurement & { resolved?: Array<{ id: string; x: number; y: number }> }> {
+    const doc = resolveDoc(patch, templateId)
+    await Promise.all([ensureFonts(doc), ensureImages(doc)])
+    const m = measureDoc(doc)
+    if (!anchors?.length) return m
+    return {
+      ...m,
+      resolved: anchors.map((a) => ({
+        id: a.id,
+        ...resolveAnchor(m, a.anchor, { width: a.width, height: a.height }),
+      })),
+    }
+  },
+
+  /** The document the app currently has open, so it can be edited in place. */
+  currentCanvas(): { name: string; doc: unknown } | null {
+    return useAppStore.getState().liveDoc
   },
 
   /** Batch/bullet "export all" — N titles from one styled document. */
