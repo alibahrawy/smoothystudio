@@ -4,70 +4,89 @@ import { beforeAll, describe, expect, it } from 'vitest'
  * Server-render smoke test for the Studio view — the biggest screen in the app
  * and the one most prone to "component crashes on mount" regressions. Seeds a
  * saved workspace through a stub localStorage so the layer cards render with
- * their controls expanded (a disabled card collapses its body).
+ * their controls expanded.
+ *
+ * The sidebar is an accordion: only the selected layer's card shows its body,
+ * and on a fresh mount the selection is the FIRST layer in `layerOrder`. Each
+ * render below seeds a different front layer, so together they cover every
+ * card body while each render sees exactly what a user would.
  */
-const SEEDED_CANVAS = {
-  canvases: [
-    {
-      id: 'test-canvas',
-      name: 'Canvas 1',
-      doc: {
-        border: {
-          enabled: true,
-          thickness: 32,
-          outerRadius: 40,
-          innerRadius: 12,
-          // One effect from each family, switched on so its controls render.
-          fx: {
-            transform: { enabled: true, scale: 100, rotate: 0, skewX: 0, skewY: 0, offsetX: 0, offsetY: 0, flipH: false, flipV: false },
-            threeD: { enabled: true, rotateX: 8, rotateY: 0, distance: 1200 },
-            crop: { enabled: true, top: 0, right: 0, bottom: 0, left: 0, radius: 24 },
-            mosaic: { enabled: true, size: 16 },
-            // Deliberately the LEGACY pre-split blur shape — the UI must
-            // normalize it into the Radial blur row.
-            blur: { enabled: true, type: 'zoom', amount: 30 },
-            noise: { enabled: true, amount: 20, size: 1, mono: true },
-            roughen: { enabled: true, amount: 30, size: 10 },
-            wave: { enabled: true, axis: 'horizontal', amplitude: 20, wavelength: 200, phase: 0 },
-            mirror: { enabled: true, keep: 'left' },
-            colorReplace: { enabled: true, from: '#FFFFFF', to: '#2DD4BF', tolerance: 20, preserveShading: true },
-            mask: { enabled: true, sourceId: 'shape', invert: false },
-            turbulence: { enabled: true, amount: 30, size: 120, complexity: 2, evolution: 0 },
-            vignette: { enabled: true, amount: -60, size: 55, feather: 60, roundness: 0 },
-            duotone: { enabled: true, shadowColor: '#1E293B', highlightColor: '#2DD4BF', amount: 100 },
-            blinds: { enabled: true, completion: 40, direction: 'horizontal', width: 60 },
-            echo: { enabled: true, copies: 4, offsetX: 24, offsetY: 24, scaleStep: 100, rotateStep: 0, opacityDecay: 60 },
-          },
-        },
-        logo: { enabled: true, kind: 'text', text: 'Smoothy', corner: 'top-left' },
-        shape: { enabled: true, material: 'gradient', gradientColor2: '#123456' },
-        canvasFx: { vignette: { enabled: true, amount: -50, size: 50, feather: 60, roundness: 0 } },
-        canvasGrade: { enabled: true, brightness: 100, contrast: 120, saturation: 100, hue: 0,
-                       temperature: 0, sepia: 0, grayscale: 0, invert: 0, blur: 0 },
-        image: {
-          enabled: true,
-          dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
-          grade: {
-            enabled: true,
-            brightness: 100,
-            contrast: 120,
-            saturation: 100,
-            hue: 0,
-            temperature: 0,
-            sepia: 0,
-            grayscale: 0,
-            invert: 0,
-            blur: 0,
-          },
-        },
-      },
+const DOC = {
+  border: {
+    enabled: true,
+    thickness: 32,
+    outerRadius: 40,
+    innerRadius: 12,
+    // One effect from each family, switched on so its controls render.
+    fx: {
+      transform: { enabled: true, scale: 100, rotate: 0, skewX: 0, skewY: 0, offsetX: 0, offsetY: 0, flipH: false, flipV: false },
+      threeD: { enabled: true, rotateX: 8, rotateY: 0, distance: 1200 },
+      crop: { enabled: true, top: 0, right: 0, bottom: 0, left: 0, radius: 24 },
+      mosaic: { enabled: true, size: 16 },
+      // Deliberately the LEGACY pre-split blur shape — the UI must
+      // normalize it into the Radial blur row.
+      blur: { enabled: true, type: 'zoom', amount: 30 },
+      noise: { enabled: true, amount: 20, size: 1, mono: true },
+      roughen: { enabled: true, amount: 30, size: 10 },
+      wave: { enabled: true, axis: 'horizontal', amplitude: 20, wavelength: 200, phase: 0 },
+      mirror: { enabled: true, keep: 'left' },
+      colorReplace: { enabled: true, from: '#FFFFFF', to: '#2DD4BF', tolerance: 20, preserveShading: true },
+      mask: { enabled: true, sourceId: 'shape', invert: false },
+      turbulence: { enabled: true, amount: 30, size: 120, complexity: 2, evolution: 0 },
+      vignette: { enabled: true, amount: -60, size: 55, feather: 60, roundness: 0 },
+      duotone: { enabled: true, shadowColor: '#1E293B', highlightColor: '#2DD4BF', amount: 100 },
+      blinds: { enabled: true, completion: 40, direction: 'horizontal', width: 60 },
+      echo: { enabled: true, copies: 4, offsetX: 24, offsetY: 24, scaleStep: 100, rotateStep: 0, opacityDecay: 60 },
     },
-  ],
-  activeId: 'test-canvas',
+  },
+  logo: { enabled: true, kind: 'text', text: 'Smoothy', corner: 'top-left' },
+  shape: { enabled: true, material: 'gradient', gradientColor2: '#123456' },
+  canvasFx: { vignette: { enabled: true, amount: -50, size: 50, feather: 60, roundness: 0 } },
+  canvasGrade: { enabled: true, brightness: 100, contrast: 120, saturation: 100, hue: 0,
+                 temperature: 0, sepia: 0, grayscale: 0, invert: 0, blur: 0 },
+  image: {
+    enabled: true,
+    dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+    grade: {
+      enabled: true,
+      brightness: 100,
+      contrast: 120,
+      saturation: 100,
+      hue: 0,
+      temperature: 0,
+      sepia: 0,
+      grayscale: 0,
+      invert: 0,
+      blur: 0,
+    },
+  },
+}
+
+const store = new Map<string, string>()
+
+/** Seed the workspace with `front` stacked first, so its card mounts open. */
+function seed(front: string): void {
+  const order = ['border', 'logo', 'shape', 'image', 'text', 'icon']
+  const layerOrder = [front, ...order.filter((l) => l !== front)]
+  store.clear()
+  store.set(
+    'studio-canvases-v1',
+    JSON.stringify({
+      canvases: [{ id: 'test-canvas', name: 'Canvas 1', doc: { ...DOC, layerOrder } }],
+      activeId: 'test-canvas',
+    }),
+  )
+}
+
+async function render(front: string): Promise<string> {
+  seed(front)
+  const { createElement } = await import('react')
+  const { renderToString } = await import('react-dom/server')
+  const { Studio } = await import('./Studio')
+  return renderToString(createElement(Studio))
 }
 
 beforeAll(() => {
-  const store = new Map<string, string>([['studio-canvases-v1', JSON.stringify(SEEDED_CANVAS)]])
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
     value: {
@@ -80,20 +99,13 @@ beforeAll(() => {
 })
 
 describe('Studio view', () => {
-  it('mounts and renders the border and logo layers with their controls', async () => {
-    const { createElement } = await import('react')
-    const { renderToString } = await import('react-dom/server')
-    const { Studio } = await import('./Studio')
+  it('renders the logo card open with its controls', async () => {
+    const html = await render('logo')
 
-    const html = renderToString(createElement(Studio))
-
-    // Controls only render when a layer is enabled, so these prove the field
-    // bodies themselves mounted — not just the collapsed card headers.
+    // Every card header is present even when collapsed…
     expect(html).toContain('Border')
-    expect(html).toContain('Thickness')
-    expect(html).toContain('Inset from edge')
-
-    expect(html).toContain('Logo')
+    expect(html).toContain('Output')
+    // …but only the front card shows its body.
     expect(html).toContain('Corner')
     expect(html).toContain('Margin')
     expect(html).toContain('Nudge X')
@@ -101,8 +113,13 @@ describe('Studio view', () => {
     expect(html).toContain('Wordmark')
     expect(html).toContain('Smoothy')
     expect(html).not.toContain('Upload logo')
+    // Collapsed cards keep their bodies out of the DOM — that is the point.
+    expect(html).not.toContain('Thickness')
+  })
 
-    // An enabled color grade renders its look presets and Lumetri groups.
+  it('renders the picture card open with the Lumetri color grade', async () => {
+    const html = await render('image')
+
     expect(html).toContain('Color grade')
     expect(html).toContain('Look')
     expect(html).toContain('Vintage')
@@ -118,12 +135,16 @@ describe('Studio view', () => {
     expect(html).toContain('Hue shift')
   })
 
-  it('renders the controls for every layer effect', async () => {
-    const { createElement } = await import('react')
-    const { renderToString } = await import('react-dom/server')
-    const { Studio } = await import('./Studio')
+  it('renders the shape card open with gradient controls', async () => {
+    const html = await render('shape')
+    expect(html).toContain('Radial') // gradient direction option
+  })
 
-    const html = renderToString(createElement(Studio))
+  it('renders the controls for every layer effect on the border card', async () => {
+    const html = await render('border')
+
+    expect(html).toContain('Thickness')
+    expect(html).toContain('Inset from edge')
 
     for (const label of [
       'Transform',
@@ -173,9 +194,7 @@ describe('Studio view', () => {
     expect(html).toContain('Mask')
     expect(html).toContain('Clip to')
     expect(html).toContain('Punch out instead')
-    expect(html).toContain('Output') // canvas-level finishing pass
-    expect(html).toContain('Finishing')
-    expect(html).toContain('Radial') // gradient direction option
+    expect(html).toContain('Output') // canvas-level finishing pass (header)
 
     // Decorations are a reorderable stack, with the layer's own fill in it so a
     // stroke or shadow can be dragged above or below the glyph.
@@ -186,5 +205,9 @@ describe('Studio view', () => {
     expect(html).toContain('role="spinbutton"')
     expect(html).not.toContain('type="range"')
     expect(html).not.toContain('role="slider"')
+
+    // The toolbar is a single row: export lives beside the size controls.
+    expect(html).toContain('Export PNG')
+    expect(html).toContain('aria-label="Undo"')
   })
 })

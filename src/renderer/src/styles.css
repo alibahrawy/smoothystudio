@@ -31,6 +31,9 @@
   --destructive: #C53030;
   --destructive-foreground: #FFFFFF;
   --border: #E5E0D6;               /* hairline */
+  /* The dim workspace surface behind the canvas — deliberately darker than
+     every panel so the artwork, not the chrome, is the brightest thing. */
+  --pasteboard: #E8E4DC;
   --input: #E5E0D6;
   --ring: oklch(0.58 0.10 196);
   --sidebar: #F4F3F1;
@@ -99,6 +102,7 @@
    explicitly likes this look — boots into Zucchini, no separate dark toggle. */
 .theme-zucchini {
   --background: oklch(0.12 0.06 165);
+  --pasteboard: oklch(0.09 0.05 165);
   --foreground: oklch(0.98 0.02 165);
   --card: oklch(0.15 0.065 165);
   --card-foreground: oklch(0.98 0.02 165);
@@ -133,6 +137,7 @@
 /* ── Strawberry (pink-red) — Pro ─────────────────────────────────────────── */
 .theme-strawberry {
   --background: oklch(1.0 0.003 15);
+  --pasteboard: oklch(0.93 0.010 15);
   --foreground: oklch(0.22 0.08 15);
   --card: oklch(0.99 0.005 15);
   --card-foreground: oklch(0.22 0.08 15);
@@ -163,6 +168,7 @@
 /* ── Blueberry (DARK navy) — Pro ─────────────────────────────────────────── */
 .theme-blueberry {
   --background: oklch(0.12 0.05 260);
+  --pasteboard: oklch(0.09 0.04 260);
   --foreground: oklch(0.96 0.02 260);
   --card: oklch(0.16 0.06 260);
   --card-foreground: oklch(0.96 0.02 260);
@@ -197,6 +203,7 @@
 /* ── Ocean (DARK cyan) — Pro ─────────────────────────────────────────────── */
 .theme-ocean {
   --background: oklch(0.13 0.05 200);
+  --pasteboard: oklch(0.10 0.04 200);
   --foreground: oklch(0.96 0.02 200);
   --card: oklch(0.16 0.06 200);
   --card-foreground: oklch(0.96 0.02 200);
@@ -231,6 +238,7 @@
 /* ── Grape (DARK purple) — Pro ───────────────────────────────────────────── */
 .theme-grape {
   --background: oklch(0.13 0.05 300);
+  --pasteboard: oklch(0.10 0.04 300);
   --foreground: oklch(0.96 0.02 300);
   --card: oklch(0.16 0.06 300);
   --card-foreground: oklch(0.96 0.02 300);
@@ -265,6 +273,7 @@
 /* ── Peach (warm orange) — Pro ───────────────────────────────────────────── */
 .theme-peach {
   --background: oklch(1.0 0.003 32);
+  --pasteboard: oklch(0.93 0.010 32);
   --foreground: oklch(0.20 0.06 32);
   --card: oklch(0.99 0.005 32);
   --card-foreground: oklch(0.20 0.06 32);
@@ -295,6 +304,7 @@
 /* ── No Fun (DARK grayscale, high contrast) — Pro ────────────────────────── */
 .theme-nofun {
   --background: oklch(0.08 0 0);
+  --pasteboard: oklch(0.05 0 0);
   --foreground: oklch(0.98 0 0);
   --card: oklch(0.12 0 0);
   --card-foreground: oklch(0.98 0 0);

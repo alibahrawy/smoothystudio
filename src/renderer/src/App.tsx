@@ -17,6 +17,7 @@ import { Logo } from './components/Logo'
  */
 export function App(): JSX.Element {
   const tab = useAppStore((s) => s.tab)
+  const status = useAppStore((s) => s.status)
   const setTab = useAppStore((s) => s.setTab)
   const theme = useAppStore((s) => s.theme)
   const signedIn = useAppStore((s) => s.signedIn)
@@ -121,7 +122,7 @@ export function App(): JSX.Element {
 
       {/* Both stay mounted — switching tabs must not discard an in-progress
           design or a running generation. */}
-      <main className="app-content min-h-0 flex-1 overflow-hidden p-4">
+      <main className="app-content min-h-0 flex-1 overflow-hidden p-3">
         <div className={cn('h-full', tab === 'studio' ? 'block' : 'hidden')}>
           <Studio />
         </div>
@@ -137,6 +138,17 @@ export function App(): JSX.Element {
         <span className="text-sm font-medium tracking-tight text-muted-foreground">
           SmoothyStudio
         </span>
+        {/* Live status published by Studio — the footer earns its row. */}
+        <span className="min-w-0 flex-1" />
+        {status.error ? (
+          <span className="truncate text-sm text-destructive" title={status.error}>
+            {status.error}
+          </span>
+        ) : tab === 'studio' && status.text ? (
+          <span className="truncate font-mono text-sm text-muted-foreground" title={status.text}>
+            {status.text}
+          </span>
+        ) : null}
       </footer>
     </div>
   )

@@ -27,6 +27,13 @@ interface RendererState extends Pick<AppState, 'theme' | 'signedIn' | 'user' | '
   /** The document Studio currently has open, mirrored here so the MCP server
    *  can read and edit it rather than only creating new canvases. */
   liveDoc: { name: string; doc: unknown } | null
+  /**
+   * What the status bar (App's footer) shows. Studio owns the content; the
+   * footer just renders it. `error` renders in the destructive colour and is
+   * for problems that must not pass silently (save failures, export failures).
+   */
+  status: { text: string; error: string | null }
+  setStatus: (s: { text: string; error: string | null }) => void
   setAuth: (v: { signedIn: boolean; user: PublicUser | null }) => void
   setTheme: (t: BrandTheme) => void
   setCredits: (c: { credits: number; tier: 'free' | 'pro' } | null) => void
@@ -49,6 +56,14 @@ export const useAppStore = create<RendererState>((set, get) => ({
   pendingStudioImage: null,
   pendingStudioDocs: [],
   liveDoc: null,
+  status: { text: '', error: null },
+  // No-op writes are skipped: the publisher runs on every doc change, and a
+  // fresh-but-equal object would re-render the whole shell each keystroke.
+  setStatus: (status) => {
+    const cur = get().status
+    if (cur.text === status.text && cur.error === status.error) return
+    set({ status })
+  },
   setAuth: ({ signedIn, user }) => set({ signedIn, user }),
   setTheme: (theme) => set({ theme }),
   setCredits: (credits) => set({ credits }),

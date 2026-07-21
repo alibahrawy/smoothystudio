@@ -1,7 +1,7 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState,
 } from 'react'
-import { canMoveLayer, hitTestDoc, layerPosition, setLayerPosition } from '../lib/studio-hit'
+import { canMoveLayer, hitTestDoc, layerPosition, moveLayerBy, setLayerPosition } from '../lib/studio-hit'
 import { measureLayer, type LayerBox } from '../lib/studio-measure'
 import { snapDrag, type SnapGuides } from '../lib/studio-snap'
 import * as Popover from '@radix-ui/react-popover'
@@ -124,7 +124,11 @@ export function Studio(): JSX.Element {
   const [exporting, setExporting] = useState(false)
   const [exportedTo, setExportedTo] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)
+  // Start with the top layer selected so its card opens — with the accordion,
+  // an all-collapsed sidebar on launch would look like the controls vanished.
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(
+    () => effectiveLayerOrder(initialWs.current!.canvases.find((c) => c.id === initialWs.current!.activeId)!.doc)[0] ?? null,
+  )
   const selectedLayerIdRef = useRef<string | null>(null)
   selectedLayerIdRef.current = selectedLayerId
 
@@ -882,8 +886,10 @@ export function Studio(): JSX.Element {
     [patch],
   )
 
-  // Keyboard: Cmd/Ctrl+Z undo/redo, and ArrowUp/Down to reorder the selected
-  // layer. Skip while focus is inside a text field so native field editing works.
+  // Keyboard: ⌘Z undo/redo, arrows nudge the selected layer's position
+  // (Shift ×10 — the Figma/Photoshop convention), ⌘[ / ⌘] change its z-order,
+  // Escape deselects. Skip while focus is inside a text field so native field
+  // editing works.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement | null
@@ -896,9 +902,23 @@ export function Studio(): JSX.Element {
         return
       }
       const sel = selectedLayerIdRef.current
-      if (sel && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      if (!sel) return
+      if ((e.metaKey || e.ctrlKey) && (e.key === '[' || e.key === ']')) {
         e.preventDefault()
-        moveLayerById(sel, e.key === 'ArrowUp' ? 'up' : 'down')
+        moveLayerById(sel, e.key === ']' ? 'up' : 'down')
+        return
+      }
+      if (e.key === 'Escape') {
+        setSelectedLayerId(null)
+        return
+      }
+      if (e.key.startsWith('Arrow') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (!canMoveLayer(docRef.current, sel)) return
+        e.preventDefault()
+        const step = e.shiftKey ? 10 : 1
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        setDoc((d) => moveLayerBy(d, sel, dx, dy))
       }
     }
     window.addEventListener('keydown', onKey)
@@ -924,7 +944,9 @@ export function Studio(): JSX.Element {
   )
 
   const isBatchOrBullet = doc.mode === 'batch' || doc.mode === 'bullet'
-  const layerEntries = effectiveLayerOrder(doc)
+  // Memoized: this array feeds maskTargets and the status-bar effect, and a
+  // fresh identity per render would re-fire both on every keystroke.
+  const layerEntries = useMemo(() => effectiveLayerOrder(doc), [doc])
 
   /** Every layer on the canvas, for the Mask effect's "clip to" picker. */
   const maskTargets = useMemo(
@@ -956,55 +978,59 @@ export function Studio(): JSX.Element {
     [requestPick, picking, maskTargets],
   )
 
+  // Publish the footer status bar: canvas size, selection + live position,
+  // export destination, and any save/export failure (never silent).
+  const setStatus = useAppStore((s) => s.setStatus)
+  useEffect(() => {
+    const sel = selectedLayerId
+    const label =
+      sel === 'canvasBg'
+        ? 'Canvas background'
+        : sel === 'output'
+          ? 'Output'
+          : sel
+            ? (maskTargets.find((m) => m.id === sel)?.label ?? null)
+            : null
+    const pos = sel ? layerPosition(doc, sel) : null
+    const parts = [`${doc.canvas.width} × ${doc.canvas.height}`]
+    if (doc.canvas.bg === 'transparent') parts.push('transparent')
+    if (label) parts.push(pos ? `${label} · x ${pos.x}  y ${pos.y}` : label)
+    if (exportedTo) parts.push(`Exported to ${exportedTo}`)
+    setStatus({
+      text: parts.join('   ·   '),
+      error: saveError ? `Not saving: ${saveError}` : exportError,
+    })
+  }, [doc, selectedLayerId, maskTargets, exportedTo, saveError, exportError, setStatus])
+
   return (
     <EyedropperContext.Provider value={pickCtx}>
-    <div className="flex h-full min-h-0 gap-6">
+    <div className="flex h-full min-h-0 gap-4">
       {/* ── Controls ─────────────────────────────────────── */}
       <div className="flex w-80 shrink-0 flex-col">
-        <header className="mb-3 flex items-center justify-between gap-2">
-          {/* The title bar already says SmoothyStudio, so this panel only needs
-              to surface a save failure — never let one pass silently. */}
-          <div className="min-w-0">
-            {saveError ? (
-              <p className="truncate text-sm text-destructive" title={saveError}>
-                Not saving: {saveError}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-sm" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (⌘Z)">
-              <Undo2 />
-            </Button>
-            <Button variant="ghost" size="icon-sm" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (⌘⇧Z)">
-              <Redo2 />
-            </Button>
-          </div>
-        </header>
-
-        {/* Add layer — any number of standalone text/shape/icon/picture items.
-            When a primary kind has been deleted, its button restores it. */}
-        <div className="mb-3 grid grid-cols-3 gap-1.5">
-          <Button variant="secondary" size="sm" onClick={addExtraText} title="Add a text layer">
-            <Type /> Text
+        {/* Add layer — one compact row; labels move into tooltips. When a
+            primary kind has been deleted, its button restores it. */}
+        <div className="mb-2 flex gap-1">
+          <Button variant="secondary" size="sm" className="flex-1" onClick={addExtraText} title="Add a text layer" aria-label="Add text">
+            <Type />
           </Button>
-          <Button variant="secondary" size="sm" onClick={addExtraShape} title="Add a shape layer">
-            <Shapes /> Shape
+          <Button variant="secondary" size="sm" className="flex-1" onClick={addExtraShape} title="Add a shape layer" aria-label="Add shape">
+            <Shapes />
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => void addExtraIcon()} title="Add an icon / logo layer">
-            <Sticker /> Icon
+          <Button variant="secondary" size="sm" className="flex-1" onClick={() => void addExtraIcon()} title="Add an icon / logo layer" aria-label="Add icon">
+            <Sticker />
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => void addExtraImage()} title="Add a picture layer">
-            <ImagePlus /> Photo
+          <Button variant="secondary" size="sm" className="flex-1" onClick={() => void addExtraImage()} title="Add a picture layer" aria-label="Add photo">
+            <ImagePlus />
           </Button>
-          <Button variant="secondary" size="sm" onClick={addExtraBorder} title="Add a border frame">
-            <Square /> Border
+          <Button variant="secondary" size="sm" className="flex-1" onClick={addExtraBorder} title="Add a border frame" aria-label="Add border">
+            <Square />
           </Button>
-          <Button variant="secondary" size="sm" onClick={addExtraLogo} title="Add a corner logo / watermark">
-            <BadgeCheck /> Logo
+          <Button variant="secondary" size="sm" className="flex-1" onClick={addExtraLogo} title="Add a corner logo / watermark" aria-label="Add logo">
+            <BadgeCheck />
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden pb-8 pr-1">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pb-8 pr-1">
           {/* Dynamic Layer Cards — every primary AND every duplicated (extra)
               item, in one reorderable z-stack. Draggable via dnd-kit (grip
               handle in each card's header), with up/down buttons as fallback. */}
@@ -1702,8 +1728,11 @@ export function Studio(): JSX.Element {
           <ItemCard
             title="Canvas background"
             icon={<ImageIcon />}
+            cardId={LAYER_CARD_ID('canvasBg')}
             enabled={doc.layers.canvasBg}
             onToggle={(on) => patch('layers', { canvasBg: on })}
+            isSelected={selectedLayerId === 'canvasBg'}
+            onSelect={() => setSelectedLayerId((id) => (id === 'canvasBg' ? null : 'canvasBg'))}
           >
             <Field label="Background">
               <Segmented
@@ -1783,7 +1812,13 @@ export function Studio(): JSX.Element {
               layer cards because these apply after everything is drawn, which
               is the difference between darkening the frame and darkening a
               layer's own pixels. */}
-          <ItemCard title="Output" icon={<Wand2 />}>
+          <ItemCard
+            title="Output"
+            icon={<Wand2 />}
+            cardId={LAYER_CARD_ID('output')}
+            isSelected={selectedLayerId === 'output'}
+            onSelect={() => setSelectedLayerId((id) => (id === 'output' ? null : 'output'))}
+          >
             <p className="text-sm text-muted-foreground">
               Applied to the whole design after every layer is drawn — the finishing pass.
             </p>
@@ -1842,8 +1877,10 @@ export function Studio(): JSX.Element {
 
       {/* ── Canvas preview ───────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Canvas tabs — one independent document per tab */}
-        <div className="mb-2 flex items-center gap-1 overflow-x-auto" role="tablist" aria-label="Canvases">
+        {/* One toolbar: canvas tabs · size · undo/redo · export. A single row
+            instead of two stacked bars — that height belongs to the canvas. */}
+        <div className="mb-2 flex h-9 shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" role="tablist" aria-label="Canvases">
           {canvases.map((c) => {
             const active = c.id === activeId
             return (
@@ -1902,12 +1939,12 @@ export function Studio(): JSX.Element {
             <Plus />
           </Button>
         </div>
-        <div className="mb-3 flex h-9 items-center justify-between gap-3">
+          <span className="h-5 w-px shrink-0 bg-border" aria-hidden />
           {/* Per-canvas size — each tab keeps its own resolution */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <select
               aria-label="Canvas size preset"
-              className={cn(selectCls, 'h-7 w-auto min-w-[176px] text-sm')}
+              className={cn(selectCls, 'h-7 w-[150px] text-sm')}
               value={CANVAS_PRESETS.find((p) => p.width === doc.canvas.width && p.height === doc.canvas.height)?.id ?? 'custom'}
               onChange={(e) => {
                 const p = CANVAS_PRESETS.find((x) => x.id === e.target.value)
@@ -1949,21 +1986,17 @@ export function Studio(): JSX.Element {
             >
               <RotateCcw />
             </Button>
-            {doc.canvas.bg === 'transparent' ? (
-              <span className="ml-1 hidden font-mono text-sm text-muted-foreground xl:inline">transparent</span>
-            ) : null}
           </div>
-          <div className="flex items-center gap-2">
-            {exportError ? (
-              <span className="max-w-[280px] truncate text-sm text-destructive" title={exportError}>
-                {exportError}
-              </span>
-            ) : exportedTo ? (
-              <span className="inline-flex items-center gap-1 truncate text-sm text-muted-foreground">
-                <Check className="size-3.5 shrink-0 text-primary" />
-                <span className="truncate">{exportedTo}</span>
-              </span>
-            ) : null}
+          <span className="h-5 w-px shrink-0 bg-border" aria-hidden />
+          <div className="flex shrink-0 items-center gap-1">
+            <Button variant="ghost" size="icon-sm" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (⌘Z)">
+              <Undo2 />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (⌘⇧Z)">
+              <Redo2 />
+            </Button>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             {isBatchOrBullet ? (
               <Button variant="secondary" size="sm" onClick={exportAll} disabled={exporting}>
                 Export all
@@ -2353,7 +2386,7 @@ function StudioPreview({
     const el = containerRef.current
     if (!el) return
     const compute = (): void => {
-      const pad = 32
+      const pad = 20
       const maxW = el.clientWidth - pad
       const maxH = el.clientHeight - pad
       if (maxW <= 0 || maxH <= 0) return
@@ -2415,7 +2448,9 @@ function StudioPreview({
         void onDrop(e)
       }}
       className={cn(
-        'flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border bg-secondary/40 transition-colors',
+        // The pasteboard: a dim workspace surface, so the artwork is the
+        // brightest thing on screen instead of floating in app-coloured void.
+        'flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border bg-[var(--pasteboard)] shadow-inner transition-colors',
         dragOver ? 'border-primary bg-primary-soft' : 'border-border',
       )}
     >
@@ -2525,6 +2560,7 @@ function ItemCard({
   onSelect,
   isSelected,
   sortableId,
+  cardId,
   children,
 }: {
   title: string
@@ -2540,9 +2576,15 @@ function ItemCard({
   onSelect?: () => void
   isSelected?: boolean
   sortableId?: string
+  /** DOM id for scroll-into-view when the card has no sortableId. */
+  cardId?: string
   children: React.ReactNode
 }): JSX.Element {
   const dimmed = enabled === false
+  // Accordion: a selectable card shows its controls only while selected, so
+  // the sidebar reads as a short layer list instead of one endless scroll.
+  // Cards without selection wiring stay always-open.
+  const collapsed = onSelect ? !isSelected : false
   const sortable = useSortable({ id: sortableId ?? '__static__', disabled: !sortableId })
   const style = sortableId
     ? {
@@ -2566,10 +2608,11 @@ function ItemCard({
     <section
       ref={sortableId ? sortable.setNodeRef : undefined}
       // Lets a canvas click scroll this card into view; see LAYER_CARD_ID.
-      id={sortableId ? LAYER_CARD_ID(sortableId) : undefined}
+      id={sortableId ? LAYER_CARD_ID(sortableId) : cardId}
       style={style}
       className={cn(
-        'rounded-lg border p-3 transition-colors duration-120',
+        'rounded-lg border transition-colors duration-120',
+        collapsed ? 'px-3 py-1.5' : 'p-3',
         isSelected ? 'border-primary bg-primary-soft' : 'border-border bg-card',
         sortableId && sortable.isDragging && 'relative z-10 opacity-90 shadow-md',
       )}
@@ -2646,9 +2689,18 @@ function ItemCard({
               <Trash2 />
             </Button>
           ) : null}
+          {onSelect ? (
+            <ChevronDown
+              aria-hidden
+              className={cn(
+                'size-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-120',
+                collapsed && '-rotate-90',
+              )}
+            />
+          ) : null}
         </div>
       </div>
-      {dimmed ? null : <div className="mt-3 space-y-3">{children}</div>}
+      {dimmed || collapsed ? null : <div className="mt-3 space-y-3">{children}</div>}
     </section>
   )
 }
