@@ -60,6 +60,7 @@ import {
   defaultGaussianBlur, defaultMirror, defaultMosaic, defaultNoise, defaultRadialBlur,
   defaultRoughen, defaultTransform, defaultTurbulence, defaultVignette, defaultWave,
   fxOrder, normalizeFx,
+  DECOR_KEYS, DECOR_DEFAULT_SHAPE, decorOrder, type DecorKey,
   type FxBlinds, type FxMirror, type FxRadialBlur, type FxWave, type LayerEffects, type WaveType,
   duplicateCanvasOp, loadStudioPresets, mergeDoc, newExtraBorder, newExtraIcon, newExtraImage, newExtraLogo, newExtraShape,
   newExtraText, preloadImage, registerFont, renderDocToPngBase64, renderStudioDoc,
@@ -1116,6 +1117,7 @@ export function Studio(): JSX.Element {
 
                   <EffectsStack
                     sortable={fxSortable(doc.fx, (f) => setDoc((d) => ({ ...d, fx: f })))}
+                    decorSortable={decorSortableFor(doc.decor, (v) => setDoc((d) => ({ ...d, decor: v })))}
                     entries={[
                       gradeEntry(doc.grade, (g) => setDoc((d) => ({ ...d, grade: g }))),
                       ...fxEntries(doc.fx, (f) => setDoc((d) => ({ ...d, fx: f })), { ...pickCtx, selfId: 'text' }),
@@ -1292,6 +1294,7 @@ export function Studio(): JSX.Element {
                   </Field>
                   <EffectsStack
                     sortable={fxSortable(doc.shape.fx, (f) => patch('shape', { fx: f }))}
+                    decorSortable={decorSortableFor(doc.shape.decor, (v) => patch('shape', { decor: v }), DECOR_DEFAULT_SHAPE)}
                     entries={[
                       gradeEntry(doc.shape.grade, (g) => patch('shape', { grade: g })),
                       ...fxEntries(doc.shape.fx, (f) => patch('shape', { fx: f }), { ...pickCtx, selfId: 'shape' }),
@@ -1377,6 +1380,7 @@ export function Studio(): JSX.Element {
                   ) : null}
                   <EffectsStack
                     sortable={fxSortable(doc.icon.fx, (f) => patch('icon', { fx: f }))}
+                    decorSortable={decorSortableFor(doc.icon.decor, (v) => patch('icon', { decor: v }))}
                     entries={[
                       gradeEntry(doc.icon.grade, (g) => patch('icon', { grade: g })),
                       ...fxEntries(doc.icon.fx, (f) => patch('icon', { fx: f }), { ...pickCtx, selfId: 'icon' }),
@@ -1490,6 +1494,7 @@ export function Studio(): JSX.Element {
                       <SliderField label="Opacity" value={doc.image.opacity} min={0} max={100} onChange={(v) => patch('image', { opacity: v })} unit="%" />
                       <EffectsStack
                         sortable={fxSortable(doc.image.fx, (f) => patch('image', { fx: f }))}
+                        decorSortable={decorSortableFor(doc.image.decor, (v) => patch('image', { decor: v }))}
                         entries={[
                           gradeEntry(doc.image.grade, (g) => patch('image', { grade: g })),
                           ...fxEntries(doc.image.fx, (f) => patch('image', { fx: f }), { ...pickCtx, selfId: 'image' }),
@@ -2484,6 +2489,8 @@ interface EffectEntry {
   sortKey?: string
   /** Rendered after the sortable region (noise — always last in the pipeline). */
   pinBottom?: boolean
+  /** Part of the layer itself rather than something added — no remove button. */
+  fixed?: boolean
 }
 
 /** One active effect block. Draggable when it has a sortKey and the stack has
@@ -2491,11 +2498,18 @@ interface EffectEntry {
 function EffectBlock({
   entry,
   draggable,
+  dragId,
 }: {
   entry: EffectEntry
   draggable: boolean
+  /** Overrides the sortable id — decorations sort by `key`, pipeline stages by
+   *  `sortKey`, and the two live in separate drag groups. */
+  dragId?: string
 }): JSX.Element {
-  const sortable = useSortable({ id: entry.sortKey ?? `__pin-${entry.key}`, disabled: !draggable })
+  const sortable = useSortable({
+    id: dragId ?? entry.sortKey ?? `__pin-${entry.key}`,
+    disabled: !draggable,
+  })
   const style = draggable
     ? { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }
     : undefined
@@ -2526,47 +2540,83 @@ function EffectBlock({
             {entry.label}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => entry.setEnabled(false)}
-          aria-label={`Remove ${entry.label.toLowerCase()}`}
-          className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <X className="size-3" />
-        </button>
+        {entry.fixed ? null : (
+          <button
+            type="button"
+            onClick={() => entry.setEnabled(false)}
+            aria-label={`Remove ${entry.label.toLowerCase()}`}
+            className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-3" />
+          </button>
+        )}
       </div>
       <div className="mt-2.5 space-y-3">{entry.children}</div>
     </div>
   )
 }
 
+/** The layer's own pixels — a fixed member of the decoration stack, there so a
+ *  stroke or shadow can be dragged above or below it. */
+const FILL_ENTRY: EffectEntry = {
+  key: 'fill',
+  label: 'Fill',
+  enabled: true,
+  fixed: true,
+  setEnabled: () => {},
+  children: (
+    <p className="text-sm text-muted-foreground">
+      The layer&apos;s own colour or image. Drag a stroke or shadow past it to change which one
+      sits on top.
+    </p>
+  ),
+}
+
 function EffectsStack({
   label = 'Effects',
   entries,
   sortable,
+  decorSortable,
 }: {
   label?: string
   entries: EffectEntry[]
   /** When set, entries with a sortKey become drag-reorderable pipeline stages. */
   sortable?: { order: string[]; onReorder: (activeKeys: string[]) => void }
+  /** When set, the layer's shadow / glow / stroke / fill / pattern become their
+   *  own drag-reorderable group, ahead of the pipeline stages. */
+  decorSortable?: {
+    order: string[]
+    onReorder: (fullOrder: string[]) => void
+    fallback?: readonly DecorKey[]
+  }
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const dragSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
   const available = entries.filter((e) => !e.enabled)
-  const activeRaw = entries.filter((e) => e.enabled)
+  const activeRaw = decorSortable ? [...entries, FILL_ENTRY].filter((e) => e.enabled) : entries.filter((e) => e.enabled)
 
-  // Pinned entries (shadow/glow/stroke/pattern) first, then the pipeline
-  // stages in their execution order, then pin-bottom entries (noise).
+  // Decorations (in their paint order) first, then anything else pinned, then
+  // the pipeline stages in execution order, then pin-bottom entries (noise).
+  const decorKeys = new Set<string>(DECOR_KEYS)
+  const fullDecor = decorOrder(decorSortable?.order, decorSortable?.fallback)
+  const decorActive = decorSortable
+    ? activeRaw
+        .filter((e) => decorKeys.has(e.key))
+        .sort((a, b) => fullDecor.indexOf(a.key as DecorKey) - fullDecor.indexOf(b.key as DecorKey))
+    : []
+
   const orderIdx = (k: string): number => {
     const i = sortable?.order.indexOf(k) ?? -1
     return i === -1 ? Number.MAX_SAFE_INTEGER : i
   }
-  const pinnedTop = activeRaw.filter((e) => !e.sortKey && !e.pinBottom)
+  const pinnedTop = activeRaw.filter(
+    (e) => !e.sortKey && !e.pinBottom && !(decorSortable && decorKeys.has(e.key)),
+  )
   const ordered = activeRaw
     .filter((e) => e.sortKey)
     .sort((a, b) => orderIdx(a.sortKey!) - orderIdx(b.sortKey!))
   const pinnedBottom = activeRaw.filter((e) => e.pinBottom)
-  const active = [...pinnedTop, ...ordered, ...pinnedBottom]
+  const active = [...decorActive, ...pinnedTop, ...ordered, ...pinnedBottom]
 
   const handleDragEnd = (event: DragEndEvent): void => {
     const { active: dragged, over } = event
@@ -2576,6 +2626,22 @@ function EffectsStack({
     const to = keys.indexOf(String(over.id))
     if (from === -1 || to === -1) return
     sortable.onReorder(arrayMove(keys, from, to))
+  }
+
+  const handleDecorDragEnd = (event: DragEndEvent): void => {
+    const { active: dragged, over } = event
+    if (!decorSortable || !over || dragged.id === over.id) return
+    const shown = decorActive.map((e) => e.key)
+    const from = shown.indexOf(String(dragged.id))
+    const to = shown.indexOf(String(over.id))
+    if (from === -1 || to === -1) return
+    const moved = arrayMove(shown, from, to)
+    // Only the enabled decorations are on screen. Write the reorder back into
+    // the full five-key order by refilling the slots the visible ones occupied,
+    // so a decoration that is currently off keeps its place for when it returns.
+    let i = 0
+    const next = fullDecor.map((k) => (shown.includes(k) ? moved[i++] : k))
+    decorSortable.onReorder(next)
   }
   return (
     <div className="space-y-2">
@@ -2628,6 +2694,17 @@ function EffectsStack({
           </Popover.Portal>
         </Popover.Root>
       </div>
+      {decorSortable && decorActive.length > 1 ? (
+        <DndContext sensors={dragSensors} collisionDetection={closestCenter} onDragEnd={handleDecorDragEnd}>
+          <SortableContext items={decorActive.map((e) => e.key)} strategy={verticalListSortingStrategy}>
+            {decorActive.map((e) => (
+              <EffectBlock key={e.key} entry={e} draggable dragId={e.key} />
+            ))}
+          </SortableContext>
+        </DndContext>
+      ) : (
+        decorActive.map((e) => <EffectBlock key={e.key} entry={e} draggable={false} />)
+      )}
       {sortable && ordered.length > 0 ? (
         <>
           {pinnedTop.map((e) => (
@@ -2645,13 +2722,25 @@ function EffectsStack({
           ))}
         </>
       ) : (
-        active.map((e) => <EffectBlock key={e.key} entry={e} draggable={false} />)
+        active
+          .filter((e) => !decorActive.includes(e))
+          .map((e) => <EffectBlock key={e.key} entry={e} draggable={false} />)
       )}
       {active.length === 0 ? (
         <p className="text-sm text-muted-foreground">None — click + to add one.</p>
       ) : null}
     </div>
   )
+}
+
+/** The `decorSortable` prop for a layer's EffectsStack — the paint order of its
+ *  shadow / glow / stroke / fill / pattern, plus the writer that persists it. */
+function decorSortableFor(
+  decor: string[] | undefined,
+  set: (next: string[]) => void,
+  fallback?: readonly DecorKey[],
+): { order: string[]; onReorder: (keys: string[]) => void; fallback?: readonly DecorKey[] } {
+  return { order: decorOrder(decor, fallback), onReorder: set, fallback }
 }
 
 /** The `sortable` prop for a layer's EffectsStack — execution order plus the
@@ -3309,6 +3398,7 @@ function LogoFields({
       <SliderField label="Opacity" value={value.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <EffectsStack
         sortable={fxSortable(value.fx, (f) => onChange({ fx: f }))}
+        decorSortable={decorSortableFor(value.decor, (v) => onChange({ decor: v }))}
         entries={[
           gradeEntry(value.grade, (g) => onChange({ grade: g })),
           ...fxEntries(value.fx, (f) => onChange({ fx: f }), { ...pick, selfId }),
@@ -3402,6 +3492,7 @@ function BorderFields({
       <SliderField label="Opacity" value={value.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <EffectsStack
         sortable={fxSortable(value.fx, (f) => onChange({ fx: f }))}
+        decorSortable={decorSortableFor(value.decor, (v) => onChange({ decor: v }))}
         entries={[
           gradeEntry(value.grade, (g) => onChange({ grade: g })),
           ...fxEntries(value.fx, (f) => onChange({ fx: f }), { ...pick, selfId }),
@@ -3629,6 +3720,7 @@ function ExtraTextCard({
       <SliderField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <EffectsStack
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
+        decorSortable={decorSortableFor(item.decor, (v) => onChange({ decor: v }))}
         entries={[
           gradeEntry(item.grade, (g) => onChange({ grade: g })),
           ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
@@ -3725,6 +3817,7 @@ function ExtraShapeCard({
       </Field>
       <EffectsStack
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
+        decorSortable={decorSortableFor(item.decor, (v) => onChange({ decor: v }), DECOR_DEFAULT_SHAPE)}
         entries={[
           gradeEntry(item.grade, (g) => onChange({ grade: g })),
           ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
@@ -3813,6 +3906,7 @@ function ExtraIconCard({
       ) : null}
       <EffectsStack
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
+        decorSortable={decorSortableFor(item.decor, (v) => onChange({ decor: v }))}
         entries={[
           gradeEntry(item.grade, (g) => onChange({ grade: g })),
           ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
@@ -3952,6 +4046,7 @@ function ExtraImageCard({
           <SliderField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
           <EffectsStack
             sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
+            decorSortable={decorSortableFor(item.decor, (v) => onChange({ decor: v }))}
             entries={[
               gradeEntry(item.grade, (g) => onChange({ grade: g })),
               ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),

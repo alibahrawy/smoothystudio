@@ -12,6 +12,11 @@
  */
 
 import {
+  DECOR_DEFAULT_SHAPE,
+  drawShadowOf,
+  paintDecor,
+} from './studio-decor'
+import {
   applyLayerEffects,
   isFxActive,
   isNeutralGrade,
@@ -21,6 +26,7 @@ import {
 } from './studio-effects'
 
 export * from './studio-effects'
+export * from './studio-decor'
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -90,6 +96,8 @@ export interface ShapeStyle {
   shadow: EffectShadow
   glow: EffectGlow
   pattern: EffectPattern
+  /** Back-to-front order of the decorations; see `decorOrder`. */
+  decor?: string[]
   grade?: EffectColorGrade
   fx?: LayerEffects
 }
@@ -117,6 +125,8 @@ export interface ExtraTextItem {
   stroke: EffectStroke
   shadow: EffectShadow
   glow: EffectGlow
+  /** Back-to-front order of the decorations; see `decorOrder`. */
+  decor?: string[]
   grade?: EffectColorGrade
   fx?: LayerEffects
 }
@@ -142,6 +152,8 @@ export interface ExtraIconItem {
   stroke: EffectStroke
   shadow: EffectShadow
   glow: EffectGlow
+  /** Back-to-front order of the decorations; see `decorOrder`. */
+  decor?: string[]
   grade?: EffectColorGrade
   fx?: LayerEffects
 }
@@ -167,6 +179,8 @@ export interface PictureStyle {
   glow: EffectGlow
   /** Post-process feather applied to the cutout edge, 0–100. */
   bgRemovalEdgeSoftness: number
+  /** Back-to-front order of the decorations; see `decorOrder`. */
+  decor?: string[]
   grade?: EffectColorGrade
   fx?: LayerEffects
 }
@@ -197,6 +211,8 @@ export interface BorderStyle {
   shadow: EffectShadow
   glow: EffectGlow
   pattern: EffectPattern
+  /** Back-to-front order of the decorations; see `decorOrder`. */
+  decor?: string[]
   grade?: EffectColorGrade
   fx?: LayerEffects
 }
@@ -236,6 +252,8 @@ export interface LogoStyle {
   stroke: EffectStroke
   shadow: EffectShadow
   glow: EffectGlow
+  /** Back-to-front order of the decorations; see `decorOrder`. */
+  decor?: string[]
   grade?: EffectColorGrade
   fx?: LayerEffects
 }
@@ -304,6 +322,8 @@ export interface StudioDoc {
   }
   /** The text item's own pattern effect (fills the glyph silhouette). */
   pattern: EffectPattern
+  /** Back-to-front order of the title text's decorations; see `decorOrder`. */
+  decor?: string[]
   shape: ShapeStyle
   icon: {
     enabled: boolean
@@ -316,6 +336,8 @@ export interface StudioDoc {
     shadow: EffectShadow
     glow: EffectGlow
     pattern: EffectPattern
+    /** Back-to-front order of the decorations; see `decorOrder`. */
+    decor?: string[]
     grade?: EffectColorGrade
     fx?: LayerEffects
   }
@@ -1059,35 +1081,39 @@ function drawBorderStyled(
 ): void {
   const g = borderRingGeometry(b, width, height)
   if (!g) return
+  /** Flat black copy of the ring — the caster for the shadow pass. */
+  const silhouette = (c: CanvasRenderingContext2D): void => {
+    c.fillStyle = '#000'
+    if (borderRingPath(c, b, width, height)) c.fill('evenodd')
+  }
+
   ctx.save()
   ctx.globalAlpha = Math.max(0, Math.min(1, b.opacity / 100))
-  if (b.glow.enabled) {
-    ctx.save()
-    ctx.shadowColor = b.glow.color
-    ctx.shadowBlur = b.glow.blur
-    ctx.fillStyle = b.glow.color
-    for (let i = 0; i < b.glow.strength; i++) {
-      if (borderRingPath(ctx, b, width, height)) ctx.fill('evenodd')
-    }
-    ctx.restore()
-  }
-  if (b.shadow.enabled) {
-    ctx.shadowColor = b.shadow.color
-    ctx.shadowBlur = b.shadow.blur
-    ctx.shadowOffsetX = b.shadow.x
-    ctx.shadowOffsetY = b.shadow.y
-  }
-  ctx.fillStyle =
-    b.material === 'gradient'
-      ? gradientForBounds(ctx, b.gradientDirection, g.ox, g.oy, g.ox + g.ow, g.oy + g.oh, b.color, b.gradientColor2)
-      : b.color
-  if (borderRingPath(ctx, b, width, height)) ctx.fill('evenodd')
-  if (b.pattern.enabled) {
-    drawPatternMasked(ctx, b.pattern, width, height, (maskCtx) => {
-      maskCtx.fillStyle = '#000'
-      if (borderRingPath(maskCtx, b, width, height)) maskCtx.fill('evenodd')
-    })
-  }
+  paintDecor(ctx, b.decor, {
+    shadow: b.shadow.enabled
+      ? (c) => drawShadowOf(c, width, height, b.shadow, silhouette)
+      : undefined,
+    glow: b.glow.enabled
+      ? (c) => {
+          c.shadowColor = b.glow.color
+          c.shadowBlur = b.glow.blur
+          c.fillStyle = b.glow.color
+          for (let i = 0; i < b.glow.strength; i++) {
+            if (borderRingPath(c, b, width, height)) c.fill('evenodd')
+          }
+        }
+      : undefined,
+    fill: (c) => {
+      c.fillStyle =
+        b.material === 'gradient'
+          ? gradientForBounds(c, b.gradientDirection, g.ox, g.oy, g.ox + g.ow, g.oy + g.oh, b.color, b.gradientColor2)
+          : b.color
+      if (borderRingPath(c, b, width, height)) c.fill('evenodd')
+    },
+    pattern: b.pattern.enabled
+      ? (c) => drawPatternMasked(c, b.pattern, width, height, silhouette)
+      : undefined,
+  })
   ctx.restore()
 }
 
@@ -1140,30 +1166,41 @@ function drawLogoStyled(
     const { x, y } = logoBox(l, canvasW, canvasH, m.width, ascent + descent)
     const baseline = y + ascent
 
-    if (l.glow.enabled) {
-      ctx.save()
-      ctx.shadowColor = l.glow.color
-      ctx.shadowBlur = l.glow.blur
-      ctx.fillStyle = l.glow.color
-      for (let i = 0; i < l.glow.strength; i++) ctx.fillText(text, x, baseline)
-      ctx.restore()
+    const setup = (c: CanvasRenderingContext2D): void => {
+      c.font = logoFontString(l)
+      c.textAlign = 'left'
+      c.textBaseline = 'alphabetic'
     }
-    ctx.save()
-    if (l.shadow.enabled) {
-      ctx.shadowColor = l.shadow.color
-      ctx.shadowBlur = l.shadow.blur
-      ctx.shadowOffsetX = l.shadow.x
-      ctx.shadowOffsetY = l.shadow.y
-    }
-    if (l.stroke.enabled) {
-      ctx.lineJoin = 'round'
-      ctx.strokeStyle = l.stroke.color
-      ctx.lineWidth = l.stroke.width
-      ctx.strokeText(text, x, baseline)
-    }
-    ctx.fillStyle = l.color
-    ctx.fillText(text, x, baseline)
-    ctx.restore()
+    paintDecor(ctx, l.decor, {
+      shadow: l.shadow.enabled
+        ? (c) =>
+            drawShadowOf(c, canvasW, canvasH, l.shadow, (sc) => {
+              setup(sc)
+              sc.fillStyle = '#000'
+              sc.fillText(text, x, baseline)
+            })
+        : undefined,
+      glow: l.glow.enabled
+        ? (c) => {
+            c.shadowColor = l.glow.color
+            c.shadowBlur = l.glow.blur
+            c.fillStyle = l.glow.color
+            for (let i = 0; i < l.glow.strength; i++) c.fillText(text, x, baseline)
+          }
+        : undefined,
+      stroke: l.stroke.enabled
+        ? (c) => {
+            c.lineJoin = 'round'
+            c.strokeStyle = l.stroke.color
+            c.lineWidth = l.stroke.width
+            c.strokeText(text, x, baseline)
+          }
+        : undefined,
+      fill: (c) => {
+        c.fillStyle = l.color
+        c.fillText(text, x, baseline)
+      },
+    })
     ctx.restore()
     return
   }
@@ -1190,37 +1227,40 @@ function drawLogoStyled(
     return off
   }
 
-  if (l.glow.enabled) {
-    const glowImg = silhouette(l.glow.color)
-    if (glowImg) {
-      ctx.save()
-      ctx.shadowColor = l.glow.color
-      ctx.shadowBlur = l.glow.blur
-      for (let p = 0; p < l.glow.strength; p++) ctx.drawImage(glowImg, x, y, w, h)
-      ctx.restore()
-    }
-  }
-  if (l.stroke.enabled) {
-    const strokeImg = silhouette(l.stroke.color)
-    if (strokeImg) {
-      const r = l.stroke.width * 0.7
-      for (let a = 0; a < 12; a++) {
-        const angle = (a * Math.PI) / 6
-        ctx.drawImage(strokeImg, x + Math.cos(angle) * r, y + Math.sin(angle) * r, w, h)
-      }
-    }
-  }
-  ctx.save()
-  if (l.shadow.enabled) {
-    ctx.shadowColor = l.shadow.color
-    ctx.shadowBlur = l.shadow.blur
-    ctx.shadowOffsetX = l.shadow.x
-    ctx.shadowOffsetY = l.shadow.y
-  }
-  const tinted = l.tint ? silhouette(l.tint) : null
-  if (tinted) ctx.drawImage(tinted, x, y, w, h)
-  else ctx.drawImage(img, x, y, w, h)
-  ctx.restore()
+  paintDecor(ctx, l.decor, {
+    shadow: l.shadow.enabled
+      ? (c) =>
+          drawShadowOf(c, canvasW, canvasH, l.shadow, (sc) => {
+            const s = silhouette('#000')
+            if (s) sc.drawImage(s, x, y, w, h)
+          })
+      : undefined,
+    glow: l.glow.enabled
+      ? (c) => {
+          const glowImg = silhouette(l.glow.color)
+          if (!glowImg) return
+          c.shadowColor = l.glow.color
+          c.shadowBlur = l.glow.blur
+          for (let p = 0; p < l.glow.strength; p++) c.drawImage(glowImg, x, y, w, h)
+        }
+      : undefined,
+    stroke: l.stroke.enabled
+      ? (c) => {
+          const strokeImg = silhouette(l.stroke.color)
+          if (!strokeImg) return
+          const r = l.stroke.width * 0.7
+          for (let a = 0; a < 12; a++) {
+            const angle = (a * Math.PI) / 6
+            c.drawImage(strokeImg, x + Math.cos(angle) * r, y + Math.sin(angle) * r, w, h)
+          }
+        }
+      : undefined,
+    fill: (c) => {
+      const tinted = l.tint ? silhouette(l.tint) : null
+      if (tinted) c.drawImage(tinted, x, y, w, h)
+      else c.drawImage(img, x, y, w, h)
+    },
+  })
   ctx.restore()
 }
 
@@ -1233,54 +1273,67 @@ function drawOneShapeStyled(
   canvasH: number,
 ): void {
   const { w, h } = shapeDims(s)
+  const path = (c: CanvasRenderingContext2D): void => shapePath(c, s.type, cx, cy, w, h, s.cornerRadius)
+  /** Flat black copy of the shape — the caster for the shadow pass. */
+  const silhouette = (c: CanvasRenderingContext2D): void => {
+    c.fillStyle = '#000'
+    path(c)
+    c.fill()
+  }
+
   ctx.save()
   ctx.globalAlpha = Math.max(0, Math.min(1, s.opacity / 100))
-  // Glow
-  if (s.glow.enabled) {
-    ctx.save()
-    ctx.shadowColor = s.glow.color
-    ctx.shadowBlur = s.glow.blur
-    ctx.fillStyle = s.glow.color
-    for (let i = 0; i < s.glow.strength; i++) {
-      shapePath(ctx, s.type, cx, cy, w, h, s.cornerRadius)
-      ctx.fill()
-    }
-    ctx.restore()
-  }
-  if (s.shadow.enabled) {
-    ctx.shadowColor = s.shadow.color
-    ctx.shadowBlur = s.shadow.blur
-    ctx.shadowOffsetX = s.shadow.x
-    ctx.shadowOffsetY = s.shadow.y
-  }
-  ctx.fillStyle =
-    s.material === 'gradient'
-      ? gradientForBounds(
-          ctx,
-          s.gradientDirection ?? 'vertical',
-          cx - w / 2,
-          cy - h / 2,
-          cx + w / 2,
-          cy + h / 2,
-          s.color,
-          s.gradientColor2 ?? s.color,
-        )
-      : s.color
-  shapePath(ctx, s.type, cx, cy, w, h, s.cornerRadius)
-  ctx.fill()
-  if (s.pattern.enabled) {
-    drawPatternMasked(ctx, s.pattern, canvasW, canvasH, (maskCtx) => {
-      maskCtx.fillStyle = '#000'
-      shapePath(maskCtx, s.type, cx, cy, w, h, s.cornerRadius)
-      maskCtx.fill()
-    })
-  }
-  if (s.stroke.enabled) {
-    ctx.strokeStyle = s.stroke.color
-    ctx.lineWidth = s.stroke.width
-    shapePath(ctx, s.type, cx, cy, w, h, s.cornerRadius)
-    ctx.stroke()
-  }
+  paintDecor(
+    ctx,
+    s.decor,
+    {
+      shadow: s.shadow.enabled
+        ? (c) => drawShadowOf(c, canvasW, canvasH, s.shadow, silhouette)
+        : undefined,
+      glow: s.glow.enabled
+        ? (c) => {
+            c.shadowColor = s.glow.color
+            c.shadowBlur = s.glow.blur
+            c.fillStyle = s.glow.color
+            for (let i = 0; i < s.glow.strength; i++) {
+              path(c)
+              c.fill()
+            }
+          }
+        : undefined,
+      stroke: s.stroke.enabled
+        ? (c) => {
+            c.strokeStyle = s.stroke.color
+            c.lineWidth = s.stroke.width
+            path(c)
+            c.stroke()
+          }
+        : undefined,
+      fill: (c) => {
+        c.fillStyle =
+          s.material === 'gradient'
+            ? gradientForBounds(
+                c,
+                s.gradientDirection ?? 'vertical',
+                cx - w / 2,
+                cy - h / 2,
+                cx + w / 2,
+                cy + h / 2,
+                s.color,
+                s.gradientColor2 ?? s.color,
+              )
+            : s.color
+        path(c)
+        c.fill()
+      },
+      pattern: s.pattern.enabled
+        ? (c) => drawPatternMasked(c, s.pattern, canvasW, canvasH, silhouette)
+        : undefined,
+    },
+    // A shape's stroke is centred on its path, so it has always drawn on top —
+    // burying it under the fill would hide the inner half and halve its width.
+    DECOR_DEFAULT_SHAPE,
+  )
   ctx.restore()
 }
 
@@ -1358,39 +1411,38 @@ function drawOneImage(
 
   ctx.save()
   ctx.globalAlpha = Math.max(0, Math.min(1, im.opacity / 100))
-
-  if (im.glow.enabled) {
-    const glowImg = silhouette(im.glow.color)
-    if (glowImg) {
-      ctx.save()
-      ctx.shadowColor = im.glow.color
-      ctx.shadowBlur = im.glow.blur
-      for (let p = 0; p < im.glow.strength; p++) ctx.drawImage(glowImg, x, y, w, h)
-      ctx.restore()
-    }
-  }
-
-  if (im.stroke.enabled) {
-    const strokeImg = silhouette(im.stroke.color)
-    if (strokeImg) {
-      const r = im.stroke.width * 0.7
-      for (let a = 0; a < 12; a++) {
-        const angle = (a * Math.PI) / 6
-        ctx.drawImage(strokeImg, x + Math.cos(angle) * r, y + Math.sin(angle) * r, w, h)
-      }
-    }
-  }
-
-  ctx.save()
-  if (im.shadow.enabled) {
-    ctx.shadowColor = im.shadow.color
-    ctx.shadowBlur = im.shadow.blur
-    ctx.shadowOffsetX = im.shadow.x
-    ctx.shadowOffsetY = im.shadow.y
-  }
-  ctx.drawImage(img, x, y, w, h)
-  ctx.restore()
-
+  paintDecor(ctx, im.decor, {
+    shadow: im.shadow.enabled
+      ? (c) =>
+          drawShadowOf(c, canvasW, canvasH, im.shadow, (sc) => {
+            const s = silhouette('#000')
+            if (s) sc.drawImage(s, x, y, w, h)
+          })
+      : undefined,
+    glow: im.glow.enabled
+      ? (c) => {
+          const glowImg = silhouette(im.glow.color)
+          if (!glowImg) return
+          c.shadowColor = im.glow.color
+          c.shadowBlur = im.glow.blur
+          for (let p = 0; p < im.glow.strength; p++) c.drawImage(glowImg, x, y, w, h)
+        }
+      : undefined,
+    stroke: im.stroke.enabled
+      ? (c) => {
+          const strokeImg = silhouette(im.stroke.color)
+          if (!strokeImg) return
+          // A photo has no path to stroke, so the outline is the silhouette
+          // stamped around a circle — 12 samples is enough to read as solid.
+          const r = im.stroke.width * 0.7
+          for (let a = 0; a < 12; a++) {
+            const angle = (a * Math.PI) / 6
+            c.drawImage(strokeImg, x + Math.cos(angle) * r, y + Math.sin(angle) * r, w, h)
+          }
+        }
+      : undefined,
+    fill: (c) => c.drawImage(img, x, y, w, h),
+  })
   ctx.restore()
 }
 
@@ -1415,33 +1467,47 @@ function drawExtraText(ctx: CanvasRenderingContext2D, item: ExtraTextItem, canva
   const lineHeight = item.size * 1.2
   const startY = cy - (lineHeight * (lines.length - 1)) / 2
 
-  if (item.glow.enabled) {
-    ctx.save()
-    ctx.shadowColor = item.glow.color
-    ctx.shadowBlur = item.glow.blur
-    ctx.fillStyle = item.glow.color
-    for (let p = 0; p < item.glow.strength; p++) {
-      lines.forEach((line, i) => ctx.fillText(line, cx, startY + i * lineHeight))
-    }
-    ctx.restore()
+  const setup = (c: CanvasRenderingContext2D): void => {
+    c.font = `${style}${item.fontWeight} ${item.size}px "${item.fontFamily}", sans-serif`
+    c.textAlign = item.align
+    c.textBaseline = 'middle'
+  }
+  const eachLine = (paint: (line: string, y: number) => void): void => {
+    lines.forEach((line, i) => paint(line, startY + i * lineHeight))
   }
 
-  ctx.save()
-  if (item.shadow.enabled) {
-    ctx.shadowColor = item.shadow.color
-    ctx.shadowBlur = item.shadow.blur
-    ctx.shadowOffsetX = item.shadow.x
-    ctx.shadowOffsetY = item.shadow.y
-  }
-  if (item.stroke.enabled) {
-    ctx.strokeStyle = item.stroke.color
-    ctx.lineWidth = item.stroke.width
-    ctx.lineJoin = 'round'
-    lines.forEach((line, i) => ctx.strokeText(line, cx, startY + i * lineHeight))
-  }
-  ctx.fillStyle = item.color
-  lines.forEach((line, i) => ctx.fillText(line, cx, startY + i * lineHeight))
-  ctx.restore()
+  paintDecor(ctx, item.decor, {
+    shadow: item.shadow.enabled
+      ? (c) =>
+          drawShadowOf(c, canvasW, canvasH, item.shadow, (sc) => {
+            setup(sc)
+            sc.fillStyle = '#000'
+            eachLine((line, y) => sc.fillText(line, cx, y))
+          })
+      : undefined,
+    glow: item.glow.enabled
+      ? (c) => {
+          c.shadowColor = item.glow.color
+          c.shadowBlur = item.glow.blur
+          c.fillStyle = item.glow.color
+          for (let p = 0; p < item.glow.strength; p++) {
+            eachLine((line, y) => c.fillText(line, cx, y))
+          }
+        }
+      : undefined,
+    stroke: item.stroke.enabled
+      ? (c) => {
+          c.strokeStyle = item.stroke.color
+          c.lineWidth = item.stroke.width
+          c.lineJoin = 'round'
+          eachLine((line, y) => c.strokeText(line, cx, y))
+        }
+      : undefined,
+    fill: (c) => {
+      c.fillStyle = item.color
+      eachLine((line, y) => c.fillText(line, cx, y))
+    },
+  })
   ctx.restore()
 }
 
@@ -1472,41 +1538,43 @@ function drawExtraIcon(ctx: CanvasRenderingContext2D, item: ExtraIconItem, canva
   ctx.save()
   ctx.globalAlpha = Math.max(0, Math.min(1, item.opacity / 100))
 
-  if (item.glow.enabled) {
-    const glowImg = silhouette(item.glow.color)
-    if (glowImg) {
-      ctx.save()
-      ctx.shadowColor = item.glow.color
-      ctx.shadowBlur = item.glow.blur
-      for (let p = 0; p < item.glow.strength; p++) ctx.drawImage(glowImg, ix, iy, iconW, iconH)
-      ctx.restore()
-    }
-  }
-  if (item.stroke.enabled) {
-    const strokeImg = silhouette(item.stroke.color)
-    if (strokeImg) {
-      const r = item.stroke.width * 0.7
-      for (let a = 0; a < 12; a++) {
-        const angle = (a * Math.PI) / 6
-        ctx.drawImage(strokeImg, ix + Math.cos(angle) * r, iy + Math.sin(angle) * r, iconW, iconH)
+  paintDecor(ctx, item.decor, {
+    shadow: item.shadow.enabled
+      ? (c) =>
+          drawShadowOf(c, canvasW, canvasH, item.shadow, (sc) => {
+            const s = silhouette('#000')
+            if (s) sc.drawImage(s, ix, iy, iconW, iconH)
+          })
+      : undefined,
+    glow: item.glow.enabled
+      ? (c) => {
+          const glowImg = silhouette(item.glow.color)
+          if (!glowImg) return
+          c.shadowColor = item.glow.color
+          c.shadowBlur = item.glow.blur
+          for (let p = 0; p < item.glow.strength; p++) c.drawImage(glowImg, ix, iy, iconW, iconH)
+        }
+      : undefined,
+    stroke: item.stroke.enabled
+      ? (c) => {
+          const strokeImg = silhouette(item.stroke.color)
+          if (!strokeImg) return
+          const r = item.stroke.width * 0.7
+          for (let a = 0; a < 12; a++) {
+            const angle = (a * Math.PI) / 6
+            c.drawImage(strokeImg, ix + Math.cos(angle) * r, iy + Math.sin(angle) * r, iconW, iconH)
+          }
+        }
+      : undefined,
+    fill: (c) => {
+      if (item.tint) {
+        const tinted = silhouette(item.tint)
+        if (tinted) c.drawImage(tinted, ix, iy, iconW, iconH)
+      } else {
+        c.drawImage(img, ix, iy, iconW, iconH)
       }
-    }
-  }
-
-  ctx.save()
-  if (item.shadow.enabled) {
-    ctx.shadowColor = item.shadow.color
-    ctx.shadowBlur = item.shadow.blur
-    ctx.shadowOffsetX = item.shadow.x
-    ctx.shadowOffsetY = item.shadow.y
-  }
-  if (item.tint) {
-    const tinted = silhouette(item.tint)
-    if (tinted) ctx.drawImage(tinted, ix, iy, iconW, iconH)
-  } else {
-    ctx.drawImage(img, ix, iy, iconW, iconH)
-  }
-  ctx.restore()
+    },
+  })
   ctx.restore()
 }
 
@@ -1701,64 +1769,90 @@ function drawTextBlock(
     return
   }
 
-  // Per-line rendering.
+  // ── Glyph passes ──
+  // Each decoration paints every line itself, so the whole block reorders as
+  // one stack. Passes are isolated by paintDecor, which is what stops the
+  // fill's shadow from landing on top of an already-drawn stroke.
   ctx.textAlign = align
-  lines.forEach((line, i) => {
-    const lineY = firstBaselineY + i * effLineHeight + textOffY
-    const lineX = textX + textOffX
+  const setupGlyphs = (c: CanvasRenderingContext2D): void => {
+    c.font = fontString(doc)
+    c.textBaseline = 'alphabetic'
+    c.textAlign = align
+    const sc = c as CanvasRenderingContext2D & { letterSpacing: string; wordSpacing: string }
+    sc.letterSpacing = `${letter}px`
+    sc.wordSpacing = `${word}px`
+  }
+  const eachLine = (paint: (line: string, x: number, y: number) => void): void => {
+    lines.forEach((line, i) =>
+      paint(line, textX + textOffX, firstBaselineY + i * effLineHeight + textOffY),
+    )
+  }
+  /** The block as a flat black shape — the caster for the shadow pass. */
+  const glyphSilhouette = (c: CanvasRenderingContext2D): void => {
+    setupGlyphs(c)
+    c.fillStyle = '#000'
+    eachLine((line, x, y) => c.fillText(line, x, y))
+  }
 
-    // Glow — behind everything.
-    if (doc.glow.enabled && !opts.silhouette) {
-      ctx.save()
-      ctx.shadowColor = doc.glow.color
-      ctx.shadowBlur = doc.glow.blur
-      ctx.fillStyle = doc.glow.color
-      applySpacing()
-      for (let p = 0; p < doc.glow.strength; p++) ctx.fillText(line, lineX, lineY)
-      ctx.restore()
-    }
-
-    ctx.save()
-    if (doc.shadow.enabled && !opts.silhouette) {
-      ctx.shadowColor = doc.shadow.color
-      ctx.shadowBlur = doc.shadow.blur
-      ctx.shadowOffsetX = doc.shadow.x
-      ctx.shadowOffsetY = doc.shadow.y
-    }
-    applySpacing()
-    const w = measure(line)
-    const x1 = align === 'left' ? lineX : align === 'right' ? lineX - w : lineX - w / 2
-    if (opts.silhouette) {
-      ctx.fillStyle = '#000'
-    } else {
-      if (doc.stroke.enabled) {
-        ctx.strokeStyle = doc.stroke.color
-        ctx.lineWidth = doc.stroke.width
-        ctx.lineJoin = 'round'
-        ctx.strokeText(line, lineX, lineY)
-      }
-      if (doc.material.type === 'glass') {
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)'
-        ctx.lineWidth = Math.max(2, fs * 0.02)
-        ctx.lineJoin = 'round'
-        ctx.strokeText(line, lineX, lineY)
-      }
-      setTextFill(ctx, doc, x1, lineY - fs, x1 + w, lineY)
-    }
-    ctx.fillText(line, lineX, lineY)
-    ctx.restore()
-  })
+  if (opts.silhouette) {
+    glyphSilhouette(ctx)
+  } else {
+    paintDecor(ctx, doc.decor, {
+      shadow: doc.shadow.enabled
+        ? (c) => drawShadowOf(c, doc.canvas.width, doc.canvas.height, doc.shadow, glyphSilhouette)
+        : undefined,
+      glow: doc.glow.enabled
+        ? (c) => {
+            setupGlyphs(c)
+            c.shadowColor = doc.glow.color
+            c.shadowBlur = doc.glow.blur
+            c.fillStyle = doc.glow.color
+            for (let p = 0; p < doc.glow.strength; p++) {
+              eachLine((line, x, y) => c.fillText(line, x, y))
+            }
+          }
+        : undefined,
+      stroke: doc.stroke.enabled
+        ? (c) => {
+            setupGlyphs(c)
+            c.strokeStyle = doc.stroke.color
+            c.lineWidth = doc.stroke.width
+            c.lineJoin = 'round'
+            eachLine((line, x, y) => c.strokeText(line, x, y))
+          }
+        : undefined,
+      fill: (c) => {
+        setupGlyphs(c)
+        eachLine((line, x, y) => {
+          const w = c.measureText(line).width
+          const x1 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2
+          if (doc.material.type === 'glass') {
+            c.strokeStyle = 'rgba(255,255,255,0.4)'
+            c.lineWidth = Math.max(2, fs * 0.02)
+            c.lineJoin = 'round'
+            c.strokeText(line, x, y)
+          }
+          setTextFill(c, doc, x1, y - fs, x1 + w, y)
+          c.fillText(line, x, y)
+        })
+      },
+      pattern: doc.pattern.enabled
+        ? (c) =>
+            drawPatternMasked(c, doc.pattern, doc.canvas.width, doc.canvas.height, (maskCtx) => {
+              drawTextBlock(maskCtx, doc, lines, anchorX, firstBaselineY, {
+                ...opts,
+                silhouette: true,
+                withIcon: false,
+              })
+            })
+        : undefined,
+    })
+  }
 
   spacingCtx.letterSpacing = '0px'
   spacingCtx.wordSpacing = '0px'
 
   if (iconImg) drawIcon(ctx, doc, iconImg, iconW, iconH, iconGap, textX, firstBaselineY, lines.length, effLineHeight, maxLineWidth, align)
-
-  if (!opts.silhouette && doc.pattern.enabled) {
-    drawPatternMasked(ctx, doc.pattern, doc.canvas.width, doc.canvas.height, (maskCtx) => {
-      drawTextBlock(maskCtx, doc, lines, anchorX, firstBaselineY, { ...opts, silhouette: true, withIcon: false })
-    })
-  }
 }
 
 /** The icon's left x-coordinate for the current layout. Shared by drawIcon()
@@ -1857,51 +1951,53 @@ function drawIcon(
     return off
   }
 
-  // Glow — blurred silhouette stacked `strength` times, behind everything.
-  if (doc.icon.glow.enabled) {
-    const glowImg = silhouette(doc.icon.glow.color)
-    if (glowImg) {
-      ctx.save()
-      ctx.shadowColor = doc.icon.glow.color
-      ctx.shadowBlur = doc.icon.glow.blur
-      for (let p = 0; p < doc.icon.glow.strength; p++) {
-        ctx.drawImage(glowImg, ix, iy, iconW, iconH)
+  paintDecor(ctx, doc.icon.decor, {
+    shadow: doc.icon.shadow.enabled
+      ? (c) =>
+          drawShadowOf(c, doc.canvas.width, doc.canvas.height, doc.icon.shadow, (sc) => {
+            const s = silhouette('#000')
+            if (s) sc.drawImage(s, ix, iy, iconW, iconH)
+          })
+      : undefined,
+    // Blurred silhouette stacked `strength` times.
+    glow: doc.icon.glow.enabled
+      ? (c) => {
+          const glowImg = silhouette(doc.icon.glow.color)
+          if (!glowImg) return
+          c.shadowColor = doc.icon.glow.color
+          c.shadowBlur = doc.icon.glow.blur
+          for (let p = 0; p < doc.icon.glow.strength; p++) {
+            c.drawImage(glowImg, ix, iy, iconW, iconH)
+          }
+        }
+      : undefined,
+    // Silhouette stamped in a ring around the icon (raster outline).
+    stroke: doc.icon.stroke.enabled
+      ? (c) => {
+          const strokeImg = silhouette(doc.icon.stroke.color)
+          if (!strokeImg) return
+          const r = doc.icon.stroke.width * 0.7
+          for (let a = 0; a < 12; a++) {
+            const angle = (a * Math.PI) / 6
+            c.drawImage(strokeImg, ix + Math.cos(angle) * r, iy + Math.sin(angle) * r, iconW, iconH)
+          }
+        }
+      : undefined,
+    fill: (c) => {
+      if (doc.icon.tint) {
+        const tinted = silhouette(doc.icon.tint)
+        if (tinted) c.drawImage(tinted, ix, iy, iconW, iconH)
+      } else {
+        c.drawImage(img, ix, iy, iconW, iconH)
       }
-      ctx.restore()
-    }
-  }
-
-  // Stroke — silhouette stamped in a ring around the icon (raster outline).
-  if (doc.icon.stroke.enabled) {
-    const strokeImg = silhouette(doc.icon.stroke.color)
-    if (strokeImg) {
-      const r = doc.icon.stroke.width * 0.7
-      for (let a = 0; a < 12; a++) {
-        const angle = (a * Math.PI) / 6
-        ctx.drawImage(strokeImg, ix + Math.cos(angle) * r, iy + Math.sin(angle) * r, iconW, iconH)
-      }
-    }
-  }
-
-  ctx.save()
-  if (doc.icon.shadow.enabled) {
-    ctx.shadowColor = doc.icon.shadow.color
-    ctx.shadowBlur = doc.icon.shadow.blur
-    ctx.shadowOffsetX = doc.icon.shadow.x
-    ctx.shadowOffsetY = doc.icon.shadow.y
-  }
-  if (doc.icon.tint) {
-    const tinted = silhouette(doc.icon.tint)
-    if (tinted) ctx.drawImage(tinted, ix, iy, iconW, iconH)
-  } else {
-    ctx.drawImage(img, ix, iy, iconW, iconH)
-  }
-  ctx.restore()
-
-  if (doc.icon.pattern.enabled) {
-    const patterned = patternSilhouette(doc.icon.pattern)
-    if (patterned) ctx.drawImage(patterned, ix, iy, iconW, iconH)
-  }
+    },
+    pattern: doc.icon.pattern.enabled
+      ? (c) => {
+          const patterned = patternSilhouette(doc.icon.pattern)
+          if (patterned) c.drawImage(patterned, ix, iy, iconW, iconH)
+        }
+      : undefined,
+  })
 }
 
 /* ── Mode dispatch ─────────────────────────────────────────────────────── */

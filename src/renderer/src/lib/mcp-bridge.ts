@@ -8,6 +8,7 @@ import {
   mergeDoc,
   preloadImage,
   renderDocToPngBase64,
+  DECOR_KEYS,
   FX_PIPELINE_KEYS,
   type StudioDoc,
 } from './studio'
@@ -127,6 +128,19 @@ export const studioMcp = {
           'doc.canvasFx and doc.canvasGrade apply to the FINISHED composite, not one layer. ' +
           'Use these for the finishing pass — a vignette or grade on doc.fx darkens the title ' +
           'text itself, which is almost never what you want.',
+      },
+      decorations: {
+        keys: DECOR_KEYS,
+        note:
+          "Every layer paints its shadow, glow, stroke, fill and pattern back-to-front in its " +
+          "`decor` array — e.g. decor: ['shadow','glow','stroke','fill','pattern'] (the default " +
+          'for text, pictures and icons; shapes default to stroke last so their centred stroke ' +
+          'reads at full width). Omit `decor` to take the default.',
+        whenItMatters:
+          'A thick stroke plus an offset shadow is the case to think about. At the default the ' +
+          'shadow is behind the stroke, which is almost always what you want. Move `shadow` ' +
+          'after `stroke` only if you deliberately want the shadow cast across the outline. ' +
+          'Moving `stroke` after `fill` makes the stroke overlap the glyph instead of hugging it.',
       },
       masking: {
         note:
