@@ -40,8 +40,9 @@ receives the token back, so no credentials are stored in this repo or entered in
 npm run dist:mac   # → dist/SmoothyStudio-<version>.dmg and .zip
 ```
 
-Builds are unsigned for now, so the first launch needs right-click → Open (or
-System Settings → Privacy & Security → Open Anyway).
+Builds are unsigned for now, so the first launch needs one confirmation: on
+macOS 15+ open it, click **Done**, then System Settings → Privacy & Security →
+**Open Anyway**; on macOS 13–14 right-click → **Open**.
 
 Dev server runs on `127.0.0.1:5176`, so it can run alongside SmoothyDesktop (5175).
 
