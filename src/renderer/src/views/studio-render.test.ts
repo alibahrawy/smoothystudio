@@ -176,5 +176,15 @@ describe('Studio view', () => {
     expect(html).toContain('Output') // canvas-level finishing pass
     expect(html).toContain('Finishing')
     expect(html).toContain('Radial') // gradient direction option
+
+    // Decorations are a reorderable stack, with the layer's own fill in it so a
+    // stroke or shadow can be dragged above or below the glyph.
+    expect(html).toContain('Fill')
+    expect(html).toContain('Drag a stroke or shadow past it')
+
+    // Numeric properties scrub instead of using a slider track.
+    expect(html).toContain('role="spinbutton"')
+    expect(html).not.toContain('type="range"')
+    expect(html).not.toContain('role="slider"')
   })
 })

@@ -27,7 +27,6 @@ import { useAppStore } from '../store'
 import { Button } from '../components/ui/button'
 import { Field } from '../components/ui/field'
 import { Input } from '../components/ui/input'
-import { Slider } from '../components/ui/slider'
 import { ColorPicker } from '../components/ui/color-picker'
 import { cn } from '../lib/cn'
 /**
@@ -1063,7 +1062,7 @@ export function Studio(): JSX.Element {
                       </IconToggle>
                     </div>
                   </Field>
-                  <SliderField label="Size" value={doc.font.size} min={10} max={600} onChange={(v) => patch('font', { size: v })} unit="px" />
+                  <ValueField label="Size" value={doc.font.size} min={10} max={600} onChange={(v) => patch('font', { size: v })} unit="px" />
                   <Field label="Fill">
                     <Segmented
                       value={doc.material.type}
@@ -1081,11 +1080,11 @@ export function Studio(): JSX.Element {
                     </Field>
                   ) : null}
                   {doc.material.type === 'glass' ? (
-                    <SliderField label="Glass opacity" value={doc.material.glassOpacity} min={5} max={80} onChange={(v) => patch('material', { glassOpacity: v })} unit="%" />
+                    <ValueField label="Glass opacity" value={doc.material.glassOpacity} min={5} max={80} onChange={(v) => patch('material', { glassOpacity: v })} unit="%" />
                   ) : null}
                   {doc.material.type === 'gradient' ? (
                     <>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                         <Field label="Color 1">
                           <ColorPicker value={doc.material.gradientColor1} onChange={(c) => patch('material', { gradientColor1: c })} />
                         </Field>
@@ -1106,13 +1105,13 @@ export function Studio(): JSX.Element {
                     </span>
                     <span className="h-px flex-1 bg-border" />
                   </div>
-                  <SliderField label="Letter spacing" value={doc.spacing.letter} min={-20} max={100} onChange={(v) => patch('spacing', { letter: v })} unit="px" />
-                  <SliderField label="Word spacing" value={doc.spacing.word} min={-40} max={200} onChange={(v) => patch('spacing', { word: v })} unit="px" />
-                  <SliderField label="Line spacing" value={doc.spacing.line} min={-50} max={200} onChange={(v) => patch('spacing', { line: v })} unit="px" />
-                  <SliderField label="Safe zone" value={doc.align.safeZone} min={0} max={500} onChange={(v) => patch('align', { safeZone: v })} unit="px" />
-                  <div className="grid grid-cols-2 gap-2">
-                    <SliderField label="Offset X" value={doc.align.offsetX} min={-2000} max={2000} onChange={(v) => patch('align', { offsetX: v })} />
-                    <SliderField label="Offset Y" value={doc.align.offsetY} min={-2000} max={2000} onChange={(v) => patch('align', { offsetY: v })} />
+                  <ValueField label="Letter spacing" value={doc.spacing.letter} min={-20} max={100} onChange={(v) => patch('spacing', { letter: v })} unit="px" />
+                  <ValueField label="Word spacing" value={doc.spacing.word} min={-40} max={200} onChange={(v) => patch('spacing', { word: v })} unit="px" />
+                  <ValueField label="Line spacing" value={doc.spacing.line} min={-50} max={200} onChange={(v) => patch('spacing', { line: v })} unit="px" />
+                  <ValueField label="Safe zone" value={doc.align.safeZone} min={0} max={500} onChange={(v) => patch('align', { safeZone: v })} unit="px" />
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                    <ValueField label="Offset X" value={doc.align.offsetX} min={-2000} max={2000} onChange={(v) => patch('align', { offsetX: v })} />
+                    <ValueField label="Offset Y" value={doc.align.offsetY} min={-2000} max={2000} onChange={(v) => patch('align', { offsetY: v })} />
                   </div>
 
                   <EffectsStack
@@ -1167,7 +1166,7 @@ export function Studio(): JSX.Element {
                                 ]}
                               />
                             </Field>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                               <Field label="Color">
                                 <ColorPicker value={doc.box.color} onChange={(c) => patch('box', { color: c })} />
                               </Field>
@@ -1178,20 +1177,20 @@ export function Studio(): JSX.Element {
                               ) : null}
                             </div>
                             {doc.box.material !== 'gradient' ? (
-                              <SliderField label="Opacity" value={doc.box.opacity} min={0} max={100} onChange={(v) => patch('box', { opacity: v })} unit="%" />
+                              <ValueField label="Opacity" value={doc.box.opacity} min={0} max={100} onChange={(v) => patch('box', { opacity: v })} unit="%" />
                             ) : (
                               <Field label="Direction">
                                 <GradientDirControl value={doc.box.gradientDirection} onChange={(v) => patch('box', { gradientDirection: v })} />
                               </Field>
                             )}
-                            <div className="grid grid-cols-2 gap-2">
-                              <SliderField label="Padding X" value={doc.box.paddingX} min={0} max={300} onChange={(v) => patch('box', { paddingX: v })} />
-                              <SliderField label="Padding Y" value={doc.box.paddingY} min={0} max={300} onChange={(v) => patch('box', { paddingY: v })} />
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                              <ValueField label="Padding X" value={doc.box.paddingX} min={0} max={300} onChange={(v) => patch('box', { paddingX: v })} />
+                              <ValueField label="Padding Y" value={doc.box.paddingY} min={0} max={300} onChange={(v) => patch('box', { paddingY: v })} />
                             </div>
-                            <SliderField label="Corner radius" value={doc.box.radius} min={0} max={150} onChange={(v) => patch('box', { radius: v })} />
-                            <div className="grid grid-cols-2 gap-2">
-                              <SliderField label="Text offset X" value={doc.box.offsetX} min={-200} max={200} onChange={(v) => patch('box', { offsetX: v })} />
-                              <SliderField label="Text offset Y" value={doc.box.offsetY} min={-200} max={200} onChange={(v) => patch('box', { offsetY: v })} />
+                            <ValueField label="Corner radius" value={doc.box.radius} min={0} max={150} onChange={(v) => patch('box', { radius: v })} />
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                              <ValueField label="Text offset X" value={doc.box.offsetX} min={-200} max={200} onChange={(v) => patch('box', { offsetX: v })} />
+                              <ValueField label="Text offset Y" value={doc.box.offsetY} min={-200} max={200} onChange={(v) => patch('box', { offsetY: v })} />
                             </div>
                             <EffectsStack
                               label="Box effects"
@@ -1244,12 +1243,12 @@ export function Studio(): JSX.Element {
                       <option value="hexagon">Hexagon</option>
                     </select>
                   </Field>
-                  <div className="grid grid-cols-2 gap-2">
-                    <SliderField label="Width" value={doc.shape.width ?? doc.shape.size} min={10} max={2000} onChange={(v) => patch('shape', { width: v })} unit="px" />
-                    <SliderField label="Height" value={doc.shape.height ?? doc.shape.size} min={10} max={2000} onChange={(v) => patch('shape', { height: v })} unit="px" />
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                    <ValueField label="Width" value={doc.shape.width ?? doc.shape.size} min={10} max={2000} onChange={(v) => patch('shape', { width: v })} unit="px" />
+                    <ValueField label="Height" value={doc.shape.height ?? doc.shape.size} min={10} max={2000} onChange={(v) => patch('shape', { height: v })} unit="px" />
                   </div>
                   {doc.shape.type !== 'circle' ? (
-                    <SliderField
+                    <ValueField
                       label="Corner radius"
                       value={doc.shape.cornerRadius}
                       min={0}
@@ -1258,9 +1257,9 @@ export function Studio(): JSX.Element {
                       unit="px"
                     />
                   ) : null}
-                  <div className="grid grid-cols-2 gap-2">
-                    <SliderField label="Offset X" value={doc.shape.x} min={-2000} max={2000} onChange={(v) => patch('shape', { x: v })} />
-                    <SliderField label="Offset Y" value={doc.shape.y} min={-2000} max={2000} onChange={(v) => patch('shape', { y: v })} />
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                    <ValueField label="Offset X" value={doc.shape.x} min={-2000} max={2000} onChange={(v) => patch('shape', { x: v })} />
+                    <ValueField label="Offset Y" value={doc.shape.y} min={-2000} max={2000} onChange={(v) => patch('shape', { y: v })} />
                   </div>
                   <Field label="Fill">
                     <Segmented
@@ -1288,7 +1287,7 @@ export function Studio(): JSX.Element {
                       </Field>
                     </>
                   ) : null}
-                  <SliderField label="Opacity" value={doc.shape.opacity} min={0} max={100} onChange={(v) => patch('shape', { opacity: v })} unit="%" />
+                  <ValueField label="Opacity" value={doc.shape.opacity} min={0} max={100} onChange={(v) => patch('shape', { opacity: v })} unit="%" />
                   <Field label="Color">
                     <ColorPicker value={doc.shape.color} onChange={(c) => patch('shape', { color: c })} />
                   </Field>
@@ -1368,9 +1367,9 @@ export function Studio(): JSX.Element {
                       ]}
                     />
                   </Field>
-                  <div className="grid grid-cols-2 gap-2">
-                    <SliderField label="Size" value={doc.icon.size} min={10} max={400} onChange={(v) => patch('icon', { size: v })} unit="%" />
-                    <SliderField label="Gap" value={doc.icon.gap} min={0} max={200} onChange={(v) => patch('icon', { gap: v })} />
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                    <ValueField label="Size" value={doc.icon.size} min={10} max={400} onChange={(v) => patch('icon', { size: v })} unit="%" />
+                    <ValueField label="Gap" value={doc.icon.gap} min={0} max={200} onChange={(v) => patch('icon', { gap: v })} />
                   </div>
                   <SubSwitch label="Tint color" checked={doc.icon.tint !== null} onChange={(on) => patch('icon', { tint: on ? '#FFFFFF' : null })} />
                   {doc.icon.tint !== null ? (
@@ -1458,7 +1457,7 @@ export function Studio(): JSX.Element {
                   </Button>
                   {doc.image.dataUrl ? (
                     <>
-                      <SliderField
+                      <ValueField
                         label="Edge softness"
                         value={doc.image.bgRemovalEdgeSoftness}
                         min={0}
@@ -1486,12 +1485,12 @@ export function Studio(): JSX.Element {
                         ) : null}
                       </div>
                       {bgRemoveError ? <p className="text-sm text-destructive">{bgRemoveError}</p> : null}
-                      <SliderField label="Size" value={doc.image.width} min={20} max={4000} onChange={(v) => patch('image', { width: v })} unit="px" />
-                      <div className="grid grid-cols-2 gap-2">
-                        <SliderField label="Offset X" value={doc.image.x} min={-2000} max={2000} onChange={(v) => patch('image', { x: v })} />
-                        <SliderField label="Offset Y" value={doc.image.y} min={-2000} max={2000} onChange={(v) => patch('image', { y: v })} />
+                      <ValueField label="Size" value={doc.image.width} min={20} max={4000} onChange={(v) => patch('image', { width: v })} unit="px" />
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                        <ValueField label="Offset X" value={doc.image.x} min={-2000} max={2000} onChange={(v) => patch('image', { x: v })} />
+                        <ValueField label="Offset Y" value={doc.image.y} min={-2000} max={2000} onChange={(v) => patch('image', { y: v })} />
                       </div>
-                      <SliderField label="Opacity" value={doc.image.opacity} min={0} max={100} onChange={(v) => patch('image', { opacity: v })} unit="%" />
+                      <ValueField label="Opacity" value={doc.image.opacity} min={0} max={100} onChange={(v) => patch('image', { opacity: v })} unit="%" />
                       <EffectsStack
                         sortable={fxSortable(doc.image.fx, (f) => patch('image', { fx: f }))}
                         decorSortable={decorSortableFor(doc.image.decor, (v) => patch('image', { decor: v }))}
@@ -1712,7 +1711,7 @@ export function Studio(): JSX.Element {
             ) : null}
             {doc.canvas.bg === 'gradient' ? (
               <>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                   <Field label="Color 1">
                     <ColorPicker value={doc.canvas.bgColor} onChange={(c) => patch('canvas', { bgColor: c })} />
                   </Field>
@@ -1739,15 +1738,15 @@ export function Studio(): JSX.Element {
                 </div>
                 {doc.canvas.imageDataUrl ? (
                   <>
-                    <SliderField label="Zoom" value={doc.canvas.imageZoom} min={50} max={400} onChange={(v) => patch('canvas', { imageZoom: v })} unit="%" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <SliderField label="Offset X" value={doc.canvas.imageX} min={-2000} max={2000} onChange={(v) => patch('canvas', { imageX: v })} />
-                      <SliderField label="Offset Y" value={doc.canvas.imageY} min={-2000} max={2000} onChange={(v) => patch('canvas', { imageY: v })} />
+                    <ValueField label="Zoom" value={doc.canvas.imageZoom} min={50} max={400} onChange={(v) => patch('canvas', { imageZoom: v })} unit="%" />
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                      <ValueField label="Offset X" value={doc.canvas.imageX} min={-2000} max={2000} onChange={(v) => patch('canvas', { imageX: v })} />
+                      <ValueField label="Offset Y" value={doc.canvas.imageY} min={-2000} max={2000} onChange={(v) => patch('canvas', { imageY: v })} />
                     </div>
-                    <SliderField label="Blur" value={doc.canvas.filterBlur} min={0} max={40} onChange={(v) => patch('canvas', { filterBlur: v })} unit="px" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <SliderField label="Brightness" value={doc.canvas.filterBrightness} min={50} max={150} onChange={(v) => patch('canvas', { filterBrightness: v })} unit="%" />
-                      <SliderField label="Saturation" value={doc.canvas.filterSaturation} min={0} max={200} onChange={(v) => patch('canvas', { filterSaturation: v })} unit="%" />
+                    <ValueField label="Blur" value={doc.canvas.filterBlur} min={0} max={40} onChange={(v) => patch('canvas', { filterBlur: v })} unit="px" />
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                      <ValueField label="Brightness" value={doc.canvas.filterBrightness} min={50} max={150} onChange={(v) => patch('canvas', { filterBrightness: v })} unit="%" />
+                      <ValueField label="Saturation" value={doc.canvas.filterSaturation} min={0} max={200} onChange={(v) => patch('canvas', { filterSaturation: v })} unit="%" />
                     </div>
                   </>
                 ) : null}
@@ -2833,23 +2832,23 @@ function fxEntries(
     }),
     row('echo', 'Echo', defaultEcho, (v, on) => (
       <>
-        <SliderField label="Copies" value={v.copies} min={1} max={10} onChange={(n) => on({ copies: n })} />
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Offset X" value={v.offsetX} min={-200} max={200} onChange={(n) => on({ offsetX: n })} />
-          <SliderField label="Offset Y" value={v.offsetY} min={-200} max={200} onChange={(n) => on({ offsetY: n })} />
+        <ValueField label="Copies" value={v.copies} min={1} max={10} onChange={(n) => on({ copies: n })} />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Offset X" value={v.offsetX} min={-200} max={200} onChange={(n) => on({ offsetX: n })} />
+          <ValueField label="Offset Y" value={v.offsetY} min={-200} max={200} onChange={(n) => on({ offsetY: n })} />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Scale step" value={v.scaleStep} min={50} max={150} onChange={(n) => on({ scaleStep: n })} unit="%" />
-          <SliderField label="Rotate step" value={v.rotateStep} min={-45} max={45} onChange={(n) => on({ rotateStep: n })} unit="°" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Scale step" value={v.scaleStep} min={50} max={150} onChange={(n) => on({ scaleStep: n })} unit="%" />
+          <ValueField label="Rotate step" value={v.rotateStep} min={-45} max={45} onChange={(n) => on({ rotateStep: n })} unit="°" />
         </div>
-        <SliderField label="Fade" value={v.opacityDecay} min={0} max={100} onChange={(n) => on({ opacityDecay: n })} unit="%" />
+        <ValueField label="Fade" value={v.opacityDecay} min={0} max={100} onChange={(n) => on({ opacityDecay: n })} unit="%" />
       </>
     )),
     row('transform', 'Transform', defaultTransform, (v, on) => (
       <>
         <div className="flex items-end gap-1.5">
           <div className="min-w-0 flex-1">
-            <SliderField
+            <ValueField
               label={v.uniform ?? true ? 'Scale' : 'Scale X'}
               value={v.scale}
               min={5}
@@ -2867,22 +2866,22 @@ function fxEntries(
           </IconToggle>
         </div>
         {!(v.uniform ?? true) ? (
-          <SliderField label="Scale Y" value={v.scaleY ?? v.scale} min={5} max={400} onChange={(n) => on({ scaleY: n })} unit="%" />
+          <ValueField label="Scale Y" value={v.scaleY ?? v.scale} min={5} max={400} onChange={(n) => on({ scaleY: n })} unit="%" />
         ) : null}
-        <SliderField label="Rotate" value={v.rotate} min={-180} max={180} onChange={(n) => on({ rotate: n })} unit="°" />
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Move X" value={v.offsetX} min={-2000} max={2000} onChange={(n) => on({ offsetX: n })} />
-          <SliderField label="Move Y" value={v.offsetY} min={-2000} max={2000} onChange={(n) => on({ offsetY: n })} />
+        <ValueField label="Rotate" value={v.rotate} min={-180} max={180} onChange={(n) => on({ rotate: n })} unit="°" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Move X" value={v.offsetX} min={-2000} max={2000} onChange={(n) => on({ offsetX: n })} />
+          <ValueField label="Move Y" value={v.offsetY} min={-2000} max={2000} onChange={(n) => on({ offsetY: n })} />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Anchor X" value={v.anchorX ?? 0} min={-1000} max={1000} onChange={(n) => on({ anchorX: n })} />
-          <SliderField label="Anchor Y" value={v.anchorY ?? 0} min={-1000} max={1000} onChange={(n) => on({ anchorY: n })} />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Anchor X" value={v.anchorX ?? 0} min={-1000} max={1000} onChange={(n) => on({ anchorX: n })} />
+          <ValueField label="Anchor Y" value={v.anchorY ?? 0} min={-1000} max={1000} onChange={(n) => on({ anchorY: n })} />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Skew X" value={v.skewX} min={-60} max={60} onChange={(n) => on({ skewX: n })} unit="°" />
-          <SliderField label="Skew Y" value={v.skewY} min={-60} max={60} onChange={(n) => on({ skewY: n })} unit="°" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Skew X" value={v.skewX} min={-60} max={60} onChange={(n) => on({ skewX: n })} unit="°" />
+          <ValueField label="Skew Y" value={v.skewY} min={-60} max={60} onChange={(n) => on({ skewY: n })} unit="°" />
         </div>
-        <SliderField label="Opacity" value={v.opacity ?? 100} min={0} max={100} onChange={(n) => on({ opacity: n })} unit="%" />
+        <ValueField label="Opacity" value={v.opacity ?? 100} min={0} max={100} onChange={(n) => on({ opacity: n })} unit="%" />
         <Field label="Flip">
           <div className="flex gap-1.5">
             <IconToggle pressed={v.flipH} onPressedChange={(b) => on({ flipH: b })} label="Flip horizontally">
@@ -2897,34 +2896,34 @@ function fxEntries(
     )),
     row('threeD', '3D tilt', default3D, (v, on) => (
       <>
-        <SliderField label="Rotate X" value={v.rotateX} min={-70} max={70} onChange={(n) => on({ rotateX: n })} unit="°" />
-        <SliderField label="Rotate Y" value={v.rotateY} min={-70} max={70} onChange={(n) => on({ rotateY: n })} unit="°" />
-        <SliderField label="Perspective" value={v.distance} min={200} max={4000} onChange={(n) => on({ distance: n })} />
+        <ValueField label="Rotate X" value={v.rotateX} min={-70} max={70} onChange={(n) => on({ rotateX: n })} unit="°" />
+        <ValueField label="Rotate Y" value={v.rotateY} min={-70} max={70} onChange={(n) => on({ rotateY: n })} unit="°" />
+        <ValueField label="Perspective" value={v.distance} min={200} max={4000} onChange={(n) => on({ distance: n })} />
         <SubSwitch label="Specular sheen" checked={v.specular ?? false} onChange={(b) => on({ specular: b })} />
         {v.specular ? (
-          <SliderField label="Sheen strength" value={v.specularStrength ?? 40} min={0} max={100} onChange={(n) => on({ specularStrength: n })} unit="%" />
+          <ValueField label="Sheen strength" value={v.specularStrength ?? 40} min={0} max={100} onChange={(n) => on({ specularStrength: n })} unit="%" />
         ) : null}
         <p className="text-sm text-muted-foreground">Lower perspective exaggerates the depth.</p>
       </>
     )),
     row('crop', 'Crop', defaultCrop, (v, on) => (
       <>
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Top" value={v.top} min={0} max={2000} onChange={(n) => on({ top: n })} unit="px" />
-          <SliderField label="Bottom" value={v.bottom} min={0} max={2000} onChange={(n) => on({ bottom: n })} unit="px" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Top" value={v.top} min={0} max={2000} onChange={(n) => on({ top: n })} unit="px" />
+          <ValueField label="Bottom" value={v.bottom} min={0} max={2000} onChange={(n) => on({ bottom: n })} unit="px" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Left" value={v.left} min={0} max={2000} onChange={(n) => on({ left: n })} unit="px" />
-          <SliderField label="Right" value={v.right} min={0} max={2000} onChange={(n) => on({ right: n })} unit="px" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Left" value={v.left} min={0} max={2000} onChange={(n) => on({ left: n })} unit="px" />
+          <ValueField label="Right" value={v.right} min={0} max={2000} onChange={(n) => on({ right: n })} unit="px" />
         </div>
-        <SliderField label="Corner radius" value={v.radius} min={0} max={600} onChange={(n) => on({ radius: n })} unit="px" />
-        <SliderField label="Edge feather" value={v.feather ?? 0} min={0} max={200} onChange={(n) => on({ feather: n })} unit="px" />
+        <ValueField label="Corner radius" value={v.radius} min={0} max={600} onChange={(n) => on({ radius: n })} unit="px" />
+        <ValueField label="Edge feather" value={v.feather ?? 0} min={0} max={200} onChange={(n) => on({ feather: n })} unit="px" />
       </>
     )),
     row('mosaic', 'Mosaic', defaultMosaic, (v, on) => (
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Block width" value={v.size} min={2} max={200} onChange={(n) => on({ size: n })} unit="px" />
-        <SliderField
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Block width" value={v.size} min={2} max={200} onChange={(n) => on({ size: n })} unit="px" />
+        <ValueField
           label="Block height"
           value={v.sizeV || v.size}
           min={2}
@@ -2935,7 +2934,7 @@ function fxEntries(
       </div>
     )),
     row('gaussianBlur', 'Gaussian blur', defaultGaussianBlur, (v, on) => (
-      <SliderField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="px" />
+      <ValueField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="px" />
     )),
     row('radialBlur', 'Radial blur', defaultRadialBlur, (v, on) => (
       <>
@@ -2949,10 +2948,10 @@ function fxEntries(
             ]}
           />
         </Field>
-        <SliderField label="Amount" value={v.amount} min={0} max={200} onChange={(n) => on({ amount: n })} unit="%" />
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Center X" value={v.centerX ?? 0} min={-1500} max={1500} onChange={(n) => on({ centerX: n })} />
-          <SliderField label="Center Y" value={v.centerY ?? 0} min={-1500} max={1500} onChange={(n) => on({ centerY: n })} />
+        <ValueField label="Amount" value={v.amount} min={0} max={200} onChange={(n) => on({ amount: n })} unit="%" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Center X" value={v.centerX ?? 0} min={-1500} max={1500} onChange={(n) => on({ centerX: n })} />
+          <ValueField label="Center Y" value={v.centerY ?? 0} min={-1500} max={1500} onChange={(n) => on({ centerY: n })} />
         </div>
       </>
     )),
@@ -2962,8 +2961,8 @@ function fxEntries(
       defaultNoise,
       (v, on) => (
         <>
-          <SliderField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="%" />
-          <SliderField label="Grain size" value={v.size} min={1} max={12} onChange={(n) => on({ size: n })} unit="px" />
+          <ValueField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="%" />
+          <ValueField label="Grain size" value={v.size} min={1} max={12} onChange={(n) => on({ size: n })} unit="px" />
           <SubSwitch label="Monochrome" checked={v.mono} onChange={(b) => on({ mono: b })} />
           <p className="text-sm text-muted-foreground">Always runs last so the grain stays crisp.</p>
         </>
@@ -2972,9 +2971,9 @@ function fxEntries(
     ),
     row('roughen', 'Roughen edges', defaultRoughen, (v, on) => (
       <>
-        <SliderField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="%" />
-        <SliderField label="Detail size" value={v.size} min={1} max={60} onChange={(n) => on({ size: n })} unit="px" />
-        <SliderField label="Evolution" value={v.seed ?? 1} min={0} max={100} onChange={(n) => on({ seed: n })} />
+        <ValueField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="%" />
+        <ValueField label="Detail size" value={v.size} min={1} max={60} onChange={(n) => on({ size: n })} unit="px" />
+        <ValueField label="Evolution" value={v.seed ?? 1} min={0} max={100} onChange={(n) => on({ seed: n })} />
       </>
     )),
     row('wave', 'Wave warp', defaultWave, (v, on) => (
@@ -3000,35 +2999,35 @@ function fxEntries(
             ]}
           />
         </Field>
-        <SliderField label="Amplitude" value={v.amplitude} min={0} max={400} onChange={(n) => on({ amplitude: n })} unit="px" />
-        <SliderField label="Wavelength" value={v.wavelength} min={8} max={2000} onChange={(n) => on({ wavelength: n })} unit="px" />
-        <SliderField label="Phase" value={v.phase} min={0} max={360} onChange={(n) => on({ phase: n })} unit="°" />
+        <ValueField label="Amplitude" value={v.amplitude} min={0} max={400} onChange={(n) => on({ amplitude: n })} unit="px" />
+        <ValueField label="Wavelength" value={v.wavelength} min={8} max={2000} onChange={(n) => on({ wavelength: n })} unit="px" />
+        <ValueField label="Phase" value={v.phase} min={0} max={360} onChange={(n) => on({ phase: n })} unit="°" />
         <SubSwitch label="Pin edges" checked={v.pinEdges ?? false} onChange={(b) => on({ pinEdges: b })} />
       </>
     )),
     row('turbulence', 'Turbulent displace', defaultTurbulence, (v, on) => (
       <>
-        <SliderField label="Amount" value={v.amount} min={0} max={300} onChange={(n) => on({ amount: n })} unit="px" />
-        <SliderField label="Size" value={v.size} min={8} max={600} onChange={(n) => on({ size: n })} unit="px" />
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Complexity" value={v.complexity} min={1} max={3} onChange={(n) => on({ complexity: n })} />
-          <SliderField label="Evolution" value={v.evolution} min={0} max={100} onChange={(n) => on({ evolution: n })} />
+        <ValueField label="Amount" value={v.amount} min={0} max={300} onChange={(n) => on({ amount: n })} unit="px" />
+        <ValueField label="Size" value={v.size} min={8} max={600} onChange={(n) => on({ size: n })} unit="px" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Complexity" value={v.complexity} min={1} max={3} onChange={(n) => on({ complexity: n })} />
+          <ValueField label="Evolution" value={v.evolution} min={0} max={100} onChange={(n) => on({ evolution: n })} />
         </div>
       </>
     )),
     row('vignette', 'Vignette', defaultVignette, (v, on) => (
       <>
-        <SliderField label="Amount" value={v.amount} min={-100} max={100} onChange={(n) => on({ amount: n })} />
-        <SliderField label="Size" value={v.size} min={0} max={100} onChange={(n) => on({ size: n })} unit="%" />
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label="Feather" value={v.feather} min={0} max={100} onChange={(n) => on({ feather: n })} unit="%" />
-          <SliderField label="Roundness" value={v.roundness} min={0} max={100} onChange={(n) => on({ roundness: n })} unit="%" />
+        <ValueField label="Amount" value={v.amount} min={-100} max={100} onChange={(n) => on({ amount: n })} />
+        <ValueField label="Size" value={v.size} min={0} max={100} onChange={(n) => on({ size: n })} unit="%" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <ValueField label="Feather" value={v.feather} min={0} max={100} onChange={(n) => on({ feather: n })} unit="%" />
+          <ValueField label="Roundness" value={v.roundness} min={0} max={100} onChange={(n) => on({ roundness: n })} unit="%" />
         </div>
       </>
     )),
     row('duotone', 'Duotone', defaultDuotone, (v, on) => (
       <>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
           <Field label="Shadows">
             <ColorPicker value={v.shadowColor} onChange={(c) => on({ shadowColor: c })} />
           </Field>
@@ -3036,7 +3035,7 @@ function fxEntries(
             <ColorPicker value={v.highlightColor} onChange={(c) => on({ highlightColor: c })} />
           </Field>
         </div>
-        <SliderField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="%" />
+        <ValueField label="Amount" value={v.amount} min={0} max={100} onChange={(n) => on({ amount: n })} unit="%" />
       </>
     )),
     row('blinds', 'Venetian blinds', defaultBlinds, (v, on) => (
@@ -3051,8 +3050,8 @@ function fxEntries(
             ]}
           />
         </Field>
-        <SliderField label="Completion" value={v.completion} min={0} max={100} onChange={(n) => on({ completion: n })} unit="%" />
-        <SliderField label="Stripe width" value={v.width} min={4} max={400} onChange={(n) => on({ width: n })} unit="px" />
+        <ValueField label="Completion" value={v.completion} min={0} max={100} onChange={(n) => on({ completion: n })} unit="%" />
+        <ValueField label="Stripe width" value={v.width} min={4} max={400} onChange={(n) => on({ width: n })} unit="px" />
       </>
     )),
     row('mirror', 'Mirror', defaultMirror, (v, on) => (
@@ -3069,8 +3068,8 @@ function fxEntries(
             ]}
           />
         </Field>
-        <SliderField label="Line offset" value={v.offset ?? 0} min={-1000} max={1000} onChange={(n) => on({ offset: n })} unit="px" />
-        <SliderField label="Line angle" value={v.angle ?? 0} min={-45} max={45} onChange={(n) => on({ angle: n })} unit="°" />
+        <ValueField label="Line offset" value={v.offset ?? 0} min={-1000} max={1000} onChange={(n) => on({ offset: n })} unit="px" />
+        <ValueField label="Line angle" value={v.angle ?? 0} min={-45} max={45} onChange={(n) => on({ angle: n })} unit="°" />
       </>
     )),
     row('colorReplace', 'Color change', defaultColorReplace, (v, on) => (
@@ -3103,8 +3102,8 @@ function fxEntries(
             ]}
           />
         </Field>
-        <SliderField label="Tolerance" value={v.tolerance} min={0} max={100} onChange={(n) => on({ tolerance: n })} unit="%" />
-        <SliderField label="Softness" value={v.softness ?? 0} min={0} max={100} onChange={(n) => on({ softness: n })} unit="%" />
+        <ValueField label="Tolerance" value={v.tolerance} min={0} max={100} onChange={(n) => on({ tolerance: n })} unit="%" />
+        <ValueField label="Softness" value={v.softness ?? 0} min={0} max={100} onChange={(n) => on({ softness: n })} unit="%" />
         <SubSwitch label="Keep shading" checked={v.preserveShading} onChange={(b) => on({ preserveShading: b })} />
       </>
     )),
@@ -3168,39 +3167,39 @@ function ColorGradeFields({
         </div>
       </Field>
       <GradeGroup title="Basic correction" />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Exposure" value={value.exposure ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, exposure: v })} />
-        <SliderField label="Contrast" value={value.contrast} min={0} max={200} onChange={(v) => onChange({ ...value, contrast: v })} unit="%" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Exposure" value={value.exposure ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, exposure: v })} />
+        <ValueField label="Contrast" value={value.contrast} min={0} max={200} onChange={(v) => onChange({ ...value, contrast: v })} unit="%" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Highlights" value={value.highlights ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, highlights: v })} />
-        <SliderField label="Shadows" value={value.shadows ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, shadows: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Highlights" value={value.highlights ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, highlights: v })} />
+        <ValueField label="Shadows" value={value.shadows ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, shadows: v })} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Whites" value={value.whites ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, whites: v })} />
-        <SliderField label="Blacks" value={value.blacks ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, blacks: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Whites" value={value.whites ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, whites: v })} />
+        <ValueField label="Blacks" value={value.blacks ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, blacks: v })} />
       </div>
-      <SliderField label="Brightness" value={value.brightness} min={0} max={200} onChange={(v) => onChange({ ...value, brightness: v })} unit="%" />
+      <ValueField label="Brightness" value={value.brightness} min={0} max={200} onChange={(v) => onChange({ ...value, brightness: v })} unit="%" />
 
       <GradeGroup title="Color" />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Temperature" value={value.temperature} min={-100} max={100} onChange={(v) => onChange({ ...value, temperature: v })} />
-        <SliderField label="Tint" value={value.tint ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, tint: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Temperature" value={value.temperature} min={-100} max={100} onChange={(v) => onChange({ ...value, temperature: v })} />
+        <ValueField label="Tint" value={value.tint ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, tint: v })} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Vibrance" value={value.vibrance ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, vibrance: v })} />
-        <SliderField label="Saturation" value={value.saturation} min={0} max={300} onChange={(v) => onChange({ ...value, saturation: v })} unit="%" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Vibrance" value={value.vibrance ?? 0} min={-100} max={100} onChange={(v) => onChange({ ...value, vibrance: v })} />
+        <ValueField label="Saturation" value={value.saturation} min={0} max={300} onChange={(v) => onChange({ ...value, saturation: v })} unit="%" />
       </div>
-      <SliderField label="Hue shift" value={value.hue} min={-180} max={180} onChange={(v) => onChange({ ...value, hue: v })} unit="°" />
+      <ValueField label="Hue shift" value={value.hue} min={-180} max={180} onChange={(v) => onChange({ ...value, hue: v })} unit="°" />
 
       <GradeGroup title="Stylize" />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Sepia" value={value.sepia} min={0} max={100} onChange={(v) => onChange({ ...value, sepia: v })} unit="%" />
-        <SliderField label="B&W" value={value.grayscale} min={0} max={100} onChange={(v) => onChange({ ...value, grayscale: v })} unit="%" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Sepia" value={value.sepia} min={0} max={100} onChange={(v) => onChange({ ...value, sepia: v })} unit="%" />
+        <ValueField label="B&W" value={value.grayscale} min={0} max={100} onChange={(v) => onChange({ ...value, grayscale: v })} unit="%" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Invert" value={value.invert} min={0} max={100} onChange={(v) => onChange({ ...value, invert: v })} unit="%" />
-        <SliderField label="Blur" value={value.blur} min={0} max={60} onChange={(v) => onChange({ ...value, blur: v })} unit="px" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Invert" value={value.invert} min={0} max={100} onChange={(v) => onChange({ ...value, invert: v })} unit="%" />
+        <ValueField label="Blur" value={value.blur} min={0} max={60} onChange={(v) => onChange({ ...value, blur: v })} unit="px" />
       </div>
     </>
   )
@@ -3382,7 +3381,7 @@ function LogoFields({
       <Field label="Corner">
         <CornerPicker value={value.corner} onChange={(c) => onChange({ corner: c })} />
       </Field>
-      <SliderField
+      <ValueField
         label={isText ? 'Font size' : 'Size'}
         value={value.size}
         min={8}
@@ -3390,12 +3389,12 @@ function LogoFields({
         onChange={(v) => onChange({ size: v })}
         unit="px"
       />
-      <SliderField label="Margin" value={value.margin} min={0} max={600} onChange={(v) => onChange({ margin: v })} unit="px" />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Nudge X" value={value.offsetX} min={-300} max={300} onChange={(v) => onChange({ offsetX: v })} />
-        <SliderField label="Nudge Y" value={value.offsetY} min={-300} max={300} onChange={(v) => onChange({ offsetY: v })} />
+      <ValueField label="Margin" value={value.margin} min={0} max={600} onChange={(v) => onChange({ margin: v })} unit="px" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Nudge X" value={value.offsetX} min={-300} max={300} onChange={(v) => onChange({ offsetX: v })} />
+        <ValueField label="Nudge Y" value={value.offsetY} min={-300} max={300} onChange={(v) => onChange({ offsetY: v })} />
       </div>
-      <SliderField label="Opacity" value={value.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
+      <ValueField label="Opacity" value={value.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <EffectsStack
         sortable={fxSortable(value.fx, (f) => onChange({ fx: f }))}
         decorSortable={decorSortableFor(value.decor, (v) => onChange({ decor: v }))}
@@ -3448,17 +3447,17 @@ function BorderFields({
   const pick = useEyedropper()
   return (
     <>
-      <SliderField label="Thickness" value={value.thickness} min={0} max={400} onChange={(v) => onChange({ thickness: v })} unit="px" />
-      <SliderField label="Inset from edge" value={value.inset} min={0} max={600} onChange={(v) => onChange({ inset: v })} unit="px" />
+      <ValueField label="Thickness" value={value.thickness} min={0} max={400} onChange={(v) => onChange({ thickness: v })} unit="px" />
+      <ValueField label="Inset from edge" value={value.inset} min={0} max={600} onChange={(v) => onChange({ inset: v })} unit="px" />
       <div className="flex items-center gap-2 pt-1">
         <span className="text-2xs font-semibold uppercase tracking-widest text-muted-foreground">
           Corners
         </span>
         <span className="h-px flex-1 bg-border" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Outer" value={value.outerRadius} min={0} max={600} onChange={(v) => onChange({ outerRadius: v })} unit="px" />
-        <SliderField label="Inner" value={value.innerRadius} min={0} max={600} onChange={(v) => onChange({ innerRadius: v })} unit="px" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Outer" value={value.outerRadius} min={0} max={600} onChange={(v) => onChange({ outerRadius: v })} unit="px" />
+        <ValueField label="Inner" value={value.innerRadius} min={0} max={600} onChange={(v) => onChange({ innerRadius: v })} unit="px" />
       </div>
       <Field label="Fill">
         <Segmented
@@ -3472,7 +3471,7 @@ function BorderFields({
       </Field>
       {value.material === 'gradient' ? (
         <>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
             <Field label="Color 1">
               <ColorPicker value={value.color} onChange={(c) => onChange({ color: c })} />
             </Field>
@@ -3489,7 +3488,7 @@ function BorderFields({
           <ColorPicker value={value.color} onChange={(c) => onChange({ color: c })} />
         </Field>
       )}
-      <SliderField label="Opacity" value={value.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
+      <ValueField label="Opacity" value={value.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <EffectsStack
         sortable={fxSortable(value.fx, (f) => onChange({ fx: f }))}
         decorSortable={decorSortableFor(value.decor, (v) => onChange({ decor: v }))}
@@ -3532,10 +3531,10 @@ function ShadowFields({
 }): JSX.Element {
   return (
     <>
-      <SliderField label="Blur" value={value.blur} min={0} max={120} onChange={(v) => onChange({ ...value, blur: v })} />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Offset X" value={value.x} min={-100} max={100} onChange={(v) => onChange({ ...value, x: v })} />
-        <SliderField label="Offset Y" value={value.y} min={-100} max={100} onChange={(v) => onChange({ ...value, y: v })} />
+      <ValueField label="Blur" value={value.blur} min={0} max={120} onChange={(v) => onChange({ ...value, blur: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Offset X" value={value.x} min={-100} max={100} onChange={(v) => onChange({ ...value, x: v })} />
+        <ValueField label="Offset Y" value={value.y} min={-100} max={100} onChange={(v) => onChange({ ...value, y: v })} />
       </div>
       <Field label="Color">
         <ColorPicker value={value.color} onChange={(c) => onChange({ ...value, color: c })} />
@@ -3554,9 +3553,9 @@ function GlowFields({
 }): JSX.Element {
   return (
     <>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Blur" value={value.blur} min={5} max={80} onChange={(v) => onChange({ ...value, blur: v })} />
-        <SliderField label="Strength" value={value.strength} min={1} max={6} onChange={(v) => onChange({ ...value, strength: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Blur" value={value.blur} min={5} max={80} onChange={(v) => onChange({ ...value, blur: v })} />
+        <ValueField label="Strength" value={value.strength} min={1} max={6} onChange={(v) => onChange({ ...value, strength: v })} />
       </div>
       <Field label="Color">
         <ColorPicker value={value.color} onChange={(c) => onChange({ ...value, color: c })} />
@@ -3574,8 +3573,8 @@ function StrokeFields({
   onChange: (v: EffectStroke) => void
 }): JSX.Element {
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <SliderField label="Width" value={value.width} min={1} max={50} onChange={(v) => onChange({ ...value, width: v })} />
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <ValueField label="Width" value={value.width} min={1} max={50} onChange={(v) => onChange({ ...value, width: v })} />
       <Field label="Color">
         <ColorPicker value={value.color} onChange={(c) => onChange({ ...value, color: c })} />
       </Field>
@@ -3604,13 +3603,13 @@ function PatternFields({
           ]}
         />
       </Field>
-      <SliderField label="Size" value={value.size} min={10} max={300} onChange={(v) => onChange({ ...value, size: v })} />
-      <SliderField label="Opacity" value={value.opacity} min={1} max={100} onChange={(v) => onChange({ ...value, opacity: v })} unit="%" />
+      <ValueField label="Size" value={value.size} min={10} max={300} onChange={(v) => onChange({ ...value, size: v })} />
+      <ValueField label="Opacity" value={value.opacity} min={1} max={100} onChange={(v) => onChange({ ...value, opacity: v })} unit="%" />
       {value.type === 'dots' ? (
-        <SliderField label="Dot size" value={value.dotSize} min={1} max={30} onChange={(v) => onChange({ ...value, dotSize: v })} />
+        <ValueField label="Dot size" value={value.dotSize} min={1} max={30} onChange={(v) => onChange({ ...value, dotSize: v })} />
       ) : null}
       {value.type === 'lines' ? (
-        <SliderField label="Angle" value={value.angle} min={0} max={180} onChange={(v) => onChange({ ...value, angle: v })} unit="°" />
+        <ValueField label="Angle" value={value.angle} min={0} max={180} onChange={(v) => onChange({ ...value, angle: v })} unit="°" />
       ) : null}
       <Field label="Color">
         <ColorPicker value={value.color} onChange={(c) => onChange({ ...value, color: c })} />
@@ -3698,7 +3697,7 @@ function ExtraTextCard({
           </IconToggle>
         </div>
       </Field>
-      <SliderField label="Size" value={item.size} min={10} max={600} onChange={(v) => onChange({ size: v })} unit="px" />
+      <ValueField label="Size" value={item.size} min={10} max={600} onChange={(v) => onChange({ size: v })} unit="px" />
       <Field label="Align">
         <Segmented
           value={item.align}
@@ -3713,11 +3712,11 @@ function ExtraTextCard({
       <Field label="Color">
         <ColorPicker value={item.color} onChange={(c) => onChange({ color: c })} />
       </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
-        <SliderField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
+        <ValueField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
       </div>
-      <SliderField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
+      <ValueField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <EffectsStack
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
         decorSortable={decorSortableFor(item.decor, (v) => onChange({ decor: v }))}
@@ -3793,12 +3792,12 @@ function ExtraShapeCard({
           <option value="hexagon">Hexagon</option>
         </select>
       </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Width" value={item.width ?? item.size} min={10} max={2000} onChange={(v) => onChange({ width: v })} unit="px" />
-        <SliderField label="Height" value={item.height ?? item.size} min={10} max={2000} onChange={(v) => onChange({ height: v })} unit="px" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Width" value={item.width ?? item.size} min={10} max={2000} onChange={(v) => onChange({ width: v })} unit="px" />
+        <ValueField label="Height" value={item.height ?? item.size} min={10} max={2000} onChange={(v) => onChange({ height: v })} unit="px" />
       </div>
       {item.type !== 'circle' ? (
-        <SliderField
+        <ValueField
           label="Corner radius"
           value={item.cornerRadius}
           min={0}
@@ -3807,11 +3806,11 @@ function ExtraShapeCard({
           unit="px"
         />
       ) : null}
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
-        <SliderField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
+        <ValueField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
       </div>
-      <SliderField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
+      <ValueField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <Field label="Color">
         <ColorPicker value={item.color} onChange={(c) => onChange({ color: c })} />
       </Field>
@@ -3892,12 +3891,12 @@ function ExtraIconCard({
       <Button variant="secondary" size="sm" className="w-full" onClick={onReplace}>
         <Upload /> Replace image
       </Button>
-      <SliderField label="Size" value={item.size} min={10} max={2000} onChange={(v) => onChange({ size: v })} unit="px" />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
-        <SliderField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
+      <ValueField label="Size" value={item.size} min={10} max={2000} onChange={(v) => onChange({ size: v })} unit="px" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+        <ValueField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
+        <ValueField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
       </div>
-      <SliderField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
+      <ValueField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
       <SubSwitch label="Tint color" checked={item.tint !== null} onChange={(on) => onChange({ tint: on ? '#FFFFFF' : null })} />
       {item.tint !== null ? (
         <Field label="Tint">
@@ -4018,7 +4017,7 @@ function ExtraImageCard({
       </div>
       {item.dataUrl ? (
         <>
-          <SliderField
+          <ValueField
             label="Edge softness"
             value={item.bgRemovalEdgeSoftness}
             min={0}
@@ -4038,12 +4037,12 @@ function ExtraImageCard({
             ) : null}
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <SliderField label="Size" value={item.width} min={20} max={4000} onChange={(v) => onChange({ width: v })} unit="px" />
-          <div className="grid grid-cols-2 gap-2">
-            <SliderField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
-            <SliderField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
+          <ValueField label="Size" value={item.width} min={20} max={4000} onChange={(v) => onChange({ width: v })} unit="px" />
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+            <ValueField label="Offset X" value={item.x} min={-2000} max={2000} onChange={(v) => onChange({ x: v })} />
+            <ValueField label="Offset Y" value={item.y} min={-2000} max={2000} onChange={(v) => onChange({ y: v })} />
           </div>
-          <SliderField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
+          <ValueField label="Opacity" value={item.opacity} min={0} max={100} onChange={(v) => onChange({ opacity: v })} unit="%" />
           <EffectsStack
             sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
             decorSortable={decorSortableFor(item.decor, (v) => onChange({ decor: v }))}
@@ -4255,7 +4254,18 @@ function IconToggle({
   )
 }
 
-function SliderField({
+/**
+ * One property row: label on the left, the value on the right as a scrubbable
+ * number — the After Effects layout.
+ *
+ * This replaced a label + number + slider track stacked over two lines. The
+ * track cost a whole extra row per property and gave *less* precision than
+ * dragging the number: an offset ranging -2000…2000 across a ~180px track moved
+ * ~22 canvas px per pixel of travel, so it could not be nudged at all. Scrubbing
+ * is a fixed 1 unit per pixel regardless of range, with modifiers for coarse and
+ * fine, which is why AE and every NLE settled on it.
+ */
+function ValueField({
   label,
   value,
   min,
@@ -4271,60 +4281,125 @@ function SliderField({
   unit?: string
 }): JSX.Element {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <InlineNumber value={value} min={min} max={max} onChange={onChange} unit={unit} />
-      </div>
-      <Slider value={value} min={min} max={max} onChange={onChange} aria-label={label} />
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <span className="min-w-0 truncate text-sm text-muted-foreground">{label}</span>
+      <ScrubNumber label={label} value={value} min={min} max={max} onChange={onChange} unit={unit} />
     </div>
   )
 }
 
-function InlineNumber({
+/**
+ * A number you drag to change and click to type.
+ *
+ * At rest it shows the value WITH its unit ("24px"); clicking swaps to just the
+ * number, pre-selected for overtyping. Drag and click are told apart by a 3px
+ * threshold, so a click never scrubs by accident and a scrub never opens the
+ * editor.
+ */
+function ScrubNumber({
+  label,
   value,
   min,
   max,
   onChange,
   unit,
 }: {
+  label: string
   value: number
   min: number
   max: number
   onChange: (v: number) => void
   unit?: string
 }): JSX.Element {
-  // At rest the chip shows the value WITH its unit ("24px") as one highlighted
-  // pill; focusing swaps to just the number, pre-selected for overtyping.
-  // `draft === null` means not editing.
   const [draft, setDraft] = useState<string | null>(null)
+  const drag = useRef<{ x: number; from: number; moved: boolean } | null>(null)
+  const clamp = (n: number): number => Math.max(min, Math.min(max, Math.round(n)))
+
   const commit = (): void => {
     if (draft === null) return
     const trimmed = draft.trim()
     setDraft(null)
     if (trimmed === '') return // blank is not 0 — keep the previous value
-    const n = Math.round(Number(trimmed))
-    if (Number.isFinite(n)) onChange(Math.max(min, Math.min(max, n)))
+    const n = Number(trimmed)
+    if (Number.isFinite(n)) onChange(clamp(n))
   }
+
+  if (draft !== null) {
+    return (
+      <input
+        type="text"
+        inputMode="numeric"
+        autoFocus
+        aria-label={label}
+        value={draft}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setDraft(null)
+          // Don't let arrows reach the layer-reorder handler while editing.
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.stopPropagation()
+        }}
+        className="w-14 shrink-0 rounded-sm bg-secondary px-1 py-0.5 text-right font-mono text-sm text-foreground outline-none ring-1 ring-ring"
+      />
+    )
+  }
+
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      value={draft ?? `${value}${unit ?? ''}`}
-      onFocus={(e) => {
-        const el = e.currentTarget
-        setDraft(String(value))
-        requestAnimationFrame(() => el.select())
+    <span
+      role="spinbutton"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuenow={value}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      title="Drag to change · click to type · shift ×10 · alt ×0.1"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        e.currentTarget.setPointerCapture?.(e.pointerId)
+        drag.current = { x: e.clientX, from: value, moved: false }
       }}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onPointerMove={(e) => {
+        const d = drag.current
+        if (!d) return
+        const dx = e.clientX - d.x
+        if (!d.moved && Math.abs(dx) < 3) return
+        d.moved = true
+        const gain = e.shiftKey ? 10 : e.altKey ? 0.1 : 1
+        onChange(clamp(d.from + dx * gain))
+      }}
+      onPointerUp={(e) => {
+        const d = drag.current
+        drag.current = null
+        e.currentTarget.releasePointerCapture?.(e.pointerId)
+        // A press that never moved is a click — open the editor.
+        if (d && !d.moved) setDraft(String(value))
+      }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') { e.currentTarget.blur() }
-        // Prevent arrow keys from bubbling to layer-reorder handler while editing
-        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.stopPropagation()
+        const step = e.shiftKey ? 10 : 1
+        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+          e.preventDefault()
+          e.stopPropagation()
+          onChange(clamp(value + step))
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+          e.preventDefault()
+          e.stopPropagation()
+          onChange(clamp(value - step))
+        } else if (e.key === 'Enter') {
+          e.preventDefault()
+          setDraft(String(value))
+        }
       }}
-      className="w-14 cursor-text rounded-md bg-secondary/60 px-1.5 py-0.5 text-right font-mono text-sm text-muted-foreground transition-colors duration-120 ease-out hover:bg-secondary hover:text-foreground focus:bg-secondary focus:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-    />
+      className={cn(
+        'w-14 shrink-0 cursor-ew-resize select-none rounded-sm px-1 py-0.5 text-right font-mono text-sm',
+        'text-primary transition-colors duration-120 ease-out',
+        'hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+      )}
+    >
+      {value}
+      {unit ?? ''}
+    </span>
   )
 }
 
