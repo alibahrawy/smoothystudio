@@ -31,6 +31,7 @@ const SEEDED_CANVAS = {
             wave: { enabled: true, axis: 'horizontal', amplitude: 20, wavelength: 200, phase: 0 },
             mirror: { enabled: true, keep: 'left' },
             colorReplace: { enabled: true, from: '#FFFFFF', to: '#2DD4BF', tolerance: 20, preserveShading: true },
+            mask: { enabled: true, sourceId: 'shape', invert: false },
             turbulence: { enabled: true, amount: 30, size: 120, complexity: 2, evolution: 0 },
             vignette: { enabled: true, amount: -60, size: 55, feather: 60, roundness: 0 },
             duotone: { enabled: true, shadowColor: '#1E293B', highlightColor: '#2DD4BF', amount: 100 },
@@ -39,7 +40,10 @@ const SEEDED_CANVAS = {
           },
         },
         logo: { enabled: true, kind: 'text', text: 'Smoothy', corner: 'top-left' },
-        shape: { enabled: true },
+        shape: { enabled: true, material: 'gradient', gradientColor2: '#123456' },
+        canvasFx: { vignette: { enabled: true, amount: -50, size: 50, feather: 60, roundness: 0 } },
+        canvasGrade: { enabled: true, brightness: 100, contrast: 120, saturation: 100, hue: 0,
+                       temperature: 0, sepia: 0, grayscale: 0, invert: 0, blur: 0 },
         image: {
           enabled: true,
           dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
@@ -164,5 +168,13 @@ describe('Studio view', () => {
     expect(html).toContain('Softness')
     expect(html).toContain('Match by')
     expect(html).toContain('Keep shading')
+
+    // The controls for the agent-facing features must exist for humans too.
+    expect(html).toContain('Mask')
+    expect(html).toContain('Clip to')
+    expect(html).toContain('Punch out instead')
+    expect(html).toContain('Output') // canvas-level finishing pass
+    expect(html).toContain('Finishing')
+    expect(html).toContain('Radial') // gradient direction option
   })
 })

@@ -56,7 +56,7 @@ import {
   CANVAS_PRESETS, DEFAULT_FONTS, applyPreset, batchLines, defaultStudioDoc, docToPreset,
   effectiveLayerOrder, exportAllFiles, exportSuggestedName, loadCustomFonts, loadStudioCanvases,
   defaultColorGrade, GRADE_PRESETS,
-  default3D, defaultBlinds, defaultColorReplace, defaultCrop, defaultDuotone, defaultEcho,
+  default3D, defaultBlinds, defaultMask, defaultColorReplace, defaultCrop, defaultDuotone, defaultEcho,
   defaultGaussianBlur, defaultMirror, defaultMosaic, defaultNoise, defaultRadialBlur,
   defaultRoughen, defaultTransform, defaultTurbulence, defaultVignette, defaultWave,
   fxOrder, normalizeFx,
@@ -83,10 +83,13 @@ const selectCls =
 interface EyedropperCtx {
   requestPick: (apply: (hex: string) => void) => void
   picking: boolean
+  /** Every layer on the canvas, for the Mask effect's "clip to" picker. */
+  maskTargets: Array<{ id: string; label: string }>
 }
 const EyedropperContext = createContext<EyedropperCtx>({
   requestPick: () => undefined,
   picking: false,
+  maskTargets: [],
 })
 const useEyedropper = (): EyedropperCtx => useContext(EyedropperContext)
 
@@ -135,7 +138,6 @@ export function Studio(): JSX.Element {
     pickTarget.current = null
     setPicking(false)
   }, [])
-  const pickCtx = useMemo(() => ({ requestPick, picking }), [requestPick, picking])
 
   const [removingBg, setRemovingBg] = useState(false)
   const [bgRemoveProgress, setBgRemoveProgress] = useState<{ ratio: number; note?: string } | null>(null)
@@ -911,6 +913,36 @@ export function Studio(): JSX.Element {
   const isBatchOrBullet = doc.mode === 'batch' || doc.mode === 'bullet'
   const layerEntries = effectiveLayerOrder(doc)
 
+  /** Every layer on the canvas, for the Mask effect's "clip to" picker. */
+  const maskTargets = useMemo(
+    () =>
+      layerEntries.map((id) => {
+        const primaryLabel: Record<string, string> = {
+          text: doc.labels?.text ?? 'Text',
+          image: doc.labels?.image ?? 'Picture',
+          shape: doc.labels?.shape ?? 'Shape',
+          icon: doc.labels?.icon ?? 'Icon',
+          border: doc.labels?.border ?? 'Border',
+          logo: doc.labels?.logo ?? 'Logo',
+        }
+        if (primaryLabel[id]) return { id, label: primaryLabel[id] }
+        const extra =
+          doc.extraTexts.find((e) => e.id === id) ??
+          doc.extraShapes.find((e) => e.id === id) ??
+          doc.extraIcons.find((e) => e.id === id) ??
+          (doc.extraImages ?? []).find((e) => e.id === id) ??
+          (doc.extraBorders ?? []).find((e) => e.id === id) ??
+          (doc.extraLogos ?? []).find((e) => e.id === id)
+        return { id, label: extra?.name ?? 'Layer' }
+      }),
+    [layerEntries, doc],
+  )
+
+  const pickCtx = useMemo(
+    () => ({ requestPick, picking, maskTargets }),
+    [requestPick, picking, maskTargets],
+  )
+
   return (
     <EyedropperContext.Provider value={pickCtx}>
     <div className="flex h-full min-h-0 gap-6">
@@ -1086,7 +1118,7 @@ export function Studio(): JSX.Element {
                     sortable={fxSortable(doc.fx, (f) => setDoc((d) => ({ ...d, fx: f })))}
                     entries={[
                       gradeEntry(doc.grade, (g) => setDoc((d) => ({ ...d, grade: g }))),
-                      ...fxEntries(doc.fx, (f) => setDoc((d) => ({ ...d, fx: f })), pickCtx),
+                      ...fxEntries(doc.fx, (f) => setDoc((d) => ({ ...d, fx: f })), { ...pickCtx, selfId: 'text' }),
                       {
                         key: 'shadow',
                         label: 'Shadow',
@@ -1228,6 +1260,32 @@ export function Studio(): JSX.Element {
                     <SliderField label="Offset X" value={doc.shape.x} min={-2000} max={2000} onChange={(v) => patch('shape', { x: v })} />
                     <SliderField label="Offset Y" value={doc.shape.y} min={-2000} max={2000} onChange={(v) => patch('shape', { y: v })} />
                   </div>
+                  <Field label="Fill">
+                    <Segmented
+                      value={doc.shape.material ?? 'solid'}
+                      onChange={(v) => patch('shape', { material: v as 'solid' | 'gradient' })}
+                      options={[
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'gradient', label: 'Gradient' },
+                      ]}
+                    />
+                  </Field>
+                  {doc.shape.material === 'gradient' ? (
+                    <>
+                      <Field label="Color 2">
+                        <ColorPicker
+                          value={doc.shape.gradientColor2 ?? doc.shape.color}
+                          onChange={(c) => patch('shape', { gradientColor2: c })}
+                        />
+                      </Field>
+                      <Field label="Direction">
+                        <GradientDirControl
+                          value={doc.shape.gradientDirection ?? 'vertical'}
+                          onChange={(v) => patch('shape', { gradientDirection: v })}
+                        />
+                      </Field>
+                    </>
+                  ) : null}
                   <SliderField label="Opacity" value={doc.shape.opacity} min={0} max={100} onChange={(v) => patch('shape', { opacity: v })} unit="%" />
                   <Field label="Color">
                     <ColorPicker value={doc.shape.color} onChange={(c) => patch('shape', { color: c })} />
@@ -1236,7 +1294,7 @@ export function Studio(): JSX.Element {
                     sortable={fxSortable(doc.shape.fx, (f) => patch('shape', { fx: f }))}
                     entries={[
                       gradeEntry(doc.shape.grade, (g) => patch('shape', { grade: g })),
-                      ...fxEntries(doc.shape.fx, (f) => patch('shape', { fx: f }), pickCtx),
+                      ...fxEntries(doc.shape.fx, (f) => patch('shape', { fx: f }), { ...pickCtx, selfId: 'shape' }),
                       {
                         key: 'shadow',
                         label: 'Shadow',
@@ -1321,7 +1379,7 @@ export function Studio(): JSX.Element {
                     sortable={fxSortable(doc.icon.fx, (f) => patch('icon', { fx: f }))}
                     entries={[
                       gradeEntry(doc.icon.grade, (g) => patch('icon', { grade: g })),
-                      ...fxEntries(doc.icon.fx, (f) => patch('icon', { fx: f }), pickCtx),
+                      ...fxEntries(doc.icon.fx, (f) => patch('icon', { fx: f }), { ...pickCtx, selfId: 'icon' }),
                       {
                         key: 'shadow',
                         label: 'Shadow',
@@ -1434,7 +1492,7 @@ export function Studio(): JSX.Element {
                         sortable={fxSortable(doc.image.fx, (f) => patch('image', { fx: f }))}
                         entries={[
                           gradeEntry(doc.image.grade, (g) => patch('image', { grade: g })),
-                          ...fxEntries(doc.image.fx, (f) => patch('image', { fx: f }), pickCtx),
+                          ...fxEntries(doc.image.fx, (f) => patch('image', { fx: f }), { ...pickCtx, selfId: 'image' }),
                           {
                             key: 'shadow',
                             label: 'Shadow',
@@ -1585,7 +1643,7 @@ export function Studio(): JSX.Element {
                   onRename={(name) => patchExtraBorder(exBorder.id, { name })}
                   {...selectHandlers}
                 >
-                  <BorderFields value={exBorder} onChange={(p) => patchExtraBorder(exBorder.id, p)} />
+                  <BorderFields value={exBorder} selfId={exBorder.id} onChange={(p) => patchExtraBorder(exBorder.id, p)} />
                 </ItemCard>
               )
             }
@@ -1607,6 +1665,7 @@ export function Studio(): JSX.Element {
                 >
                   <LogoFields
                     value={exLogo}
+                    selfId={exLogo.id}
                     onChange={(p) => patchExtraLogo(exLogo.id, p)}
                     onUpload={() =>
                       void uploadLogoImage((dataUrl) => patchExtraLogo(exLogo.id, { dataUrl, kind: 'image' }))
@@ -1702,6 +1761,28 @@ export function Studio(): JSX.Element {
             />
           </ItemCard>
 
+
+          {/* Output — effects on the finished composite. Separate from the
+              layer cards because these apply after everything is drawn, which
+              is the difference between darkening the frame and darkening a
+              layer's own pixels. */}
+          <ItemCard title="Output" icon={<Wand2 />}>
+            <p className="text-sm text-muted-foreground">
+              Applied to the whole design after every layer is drawn — the finishing pass.
+            </p>
+            <EffectsStack
+              label="Finishing"
+              entries={[
+                gradeEntry(doc.canvasGrade, (g) => setDoc((d) => ({ ...d, canvasGrade: g }))),
+                ...fxEntries(
+                  doc.canvasFx,
+                  (f) => setDoc((d) => ({ ...d, canvasFx: f })),
+                  { ...pickCtx, selfId: '__canvas__' },
+                ).filter((e) => !['mask', 'transform', 'threeD', 'crop'].includes(e.key)),
+              ]}
+              sortable={fxSortable(doc.canvasFx, (f) => setDoc((d) => ({ ...d, canvasFx: f })))}
+            />
+          </ItemCard>
 
           {/* Presets */}
           <Section
@@ -2596,7 +2677,13 @@ type FxDataKey = Exclude<keyof LayerEffects, 'order'>
 function fxEntries(
   fx: LayerEffects | undefined,
   set: (next: LayerEffects) => void,
-  ctx: { requestPick: (apply: (hex: string) => void) => void; picking: boolean },
+  ctx: {
+    requestPick: (apply: (hex: string) => void) => void
+    picking: boolean
+    /** Layers this one can be clipped to, and which layer this is. */
+    maskTargets?: Array<{ id: string; label: string }>
+    selfId?: string
+  },
 ): EffectEntry[] {
   const base = normalizeFx(fx) ?? {}
   const patch = <K extends FxDataKey>(key: K, value: LayerEffects[K]): void =>
@@ -2626,6 +2713,35 @@ function fxEntries(
   }
 
   return [
+    row('mask', 'Mask', defaultMask, (v, on) => {
+      const targets = (ctx.maskTargets ?? []).filter((t) => t.id !== ctx.selfId)
+      return (
+        <>
+          <Field label="Clip to" htmlFor="mask-source">
+            <select
+              id="mask-source"
+              className={selectCls}
+              value={v.sourceId}
+              onChange={(e) => on({ sourceId: e.target.value })}
+            >
+              {targets.length === 0 ? <option value="">No other layers</option> : null}
+              {targets.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+          </Field>
+          <SubSwitch
+            label="Punch out instead"
+            checked={v.invert ?? false}
+            onChange={(b) => on({ invert: b })}
+          />
+          <p className="text-sm text-muted-foreground">
+            Shows this layer only where the chosen layer is — a picture inside a shape, or
+            imagery through knocked-out text.
+          </p>
+        </>
+      )
+    }),
     row('echo', 'Echo', defaultEcho, (v, on) => (
       <>
         <SliderField label="Copies" value={v.copies} min={1} max={10} onChange={(n) => on({ copies: n })} />
@@ -3068,12 +3184,15 @@ function LogoFields({
   onUpload,
   customFonts,
   systemFonts,
+  selfId = 'logo',
 }: {
   value: LogoStyle
   onChange: (p: Partial<LogoStyle>) => void
   onUpload: () => void
   customFonts: CustomFont[]
   systemFonts: string[]
+  /** Which layer this card edits — excluded from its own mask picker. */
+  selfId?: string
 }): JSX.Element {
   const pick = useEyedropper()
   const isText = value.kind === 'text'
@@ -3192,7 +3311,7 @@ function LogoFields({
         sortable={fxSortable(value.fx, (f) => onChange({ fx: f }))}
         entries={[
           gradeEntry(value.grade, (g) => onChange({ grade: g })),
-          ...fxEntries(value.fx, (f) => onChange({ fx: f }), pick),
+          ...fxEntries(value.fx, (f) => onChange({ fx: f }), { ...pick, selfId }),
           {
             key: 'shadow',
             label: 'Shadow',
@@ -3229,9 +3348,12 @@ function LogoFields({
 function BorderFields({
   value,
   onChange,
+  selfId = 'border',
 }: {
   value: BorderStyle
   onChange: (p: Partial<BorderStyle>) => void
+  /** Which layer this card edits — excluded from its own mask picker. */
+  selfId?: string
 }): JSX.Element {
   const pick = useEyedropper()
   return (
@@ -3282,7 +3404,7 @@ function BorderFields({
         sortable={fxSortable(value.fx, (f) => onChange({ fx: f }))}
         entries={[
           gradeEntry(value.grade, (g) => onChange({ grade: g })),
-          ...fxEntries(value.fx, (f) => onChange({ fx: f }), pick),
+          ...fxEntries(value.fx, (f) => onChange({ fx: f }), { ...pick, selfId }),
           {
             key: 'shadow',
             label: 'Shadow',
@@ -3509,7 +3631,7 @@ function ExtraTextCard({
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
         entries={[
           gradeEntry(item.grade, (g) => onChange({ grade: g })),
-          ...fxEntries(item.fx, (f) => onChange({ fx: f }), pick),
+          ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
           {
             key: 'shadow',
             label: 'Shadow',
@@ -3605,7 +3727,7 @@ function ExtraShapeCard({
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
         entries={[
           gradeEntry(item.grade, (g) => onChange({ grade: g })),
-          ...fxEntries(item.fx, (f) => onChange({ fx: f }), pick),
+          ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
           {
             key: 'shadow',
             label: 'Shadow',
@@ -3693,7 +3815,7 @@ function ExtraIconCard({
         sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
         entries={[
           gradeEntry(item.grade, (g) => onChange({ grade: g })),
-          ...fxEntries(item.fx, (f) => onChange({ fx: f }), pick),
+          ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
           {
             key: 'shadow',
             label: 'Shadow',
@@ -3832,7 +3954,7 @@ function ExtraImageCard({
             sortable={fxSortable(item.fx, (f) => onChange({ fx: f }))}
             entries={[
               gradeEntry(item.grade, (g) => onChange({ grade: g })),
-              ...fxEntries(item.fx, (f) => onChange({ fx: f }), pick),
+              ...fxEntries(item.fx, (f) => onChange({ fx: f }), { ...pick, selfId: item.id }),
               {
                 key: 'shadow',
                 label: 'Shadow',
@@ -4168,6 +4290,7 @@ function GradientDirControl({ value, onChange }: { value: GradientDir; onChange:
         { value: 'vertical', label: 'Vert' },
         { value: 'horizontal', label: 'Horiz' },
         { value: 'diagonal', label: 'Diag' },
+        { value: 'radial', label: 'Radial' },
       ]}
     />
   )
