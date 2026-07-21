@@ -59,11 +59,21 @@ export function resizeContext(fromW: number, fromH: number, toW: number, toH: nu
 
 const r = (n: number): number => Math.round(n)
 
-/** Remap a point given as an offset from the canvas centre. */
+/**
+ * Remap a point given as an offset from the canvas centre.
+ *
+ * On an orientation change the axes swap — but only for elements whose
+ * placement is *dominated* by the horizontal axis. Transposing everything
+ * turns a centred vertical stack (a headline above a subtitle, the commonest
+ * layout there is) into a horizontal row, which lands all of it on top of
+ * itself. Restacking is only wanted for content arranged side by side, and
+ * `|fx| > |fy|` is exactly that test.
+ */
 export function mapPoint(ctx: ResizeContext, x: number, y: number): { x: number; y: number } {
   const fx = x / (ctx.fromW / 2)
   const fy = y / (ctx.fromH / 2)
-  const [nx, ny] = ctx.transposed ? [fy, fx] : [fx, fy]
+  const swap = ctx.transposed && Math.abs(fx) > Math.abs(fy)
+  const [nx, ny] = swap ? [fy, fx] : [fx, fy]
   return { x: r(nx * (ctx.toW / 2)), y: r(ny * (ctx.toH / 2)) }
 }
 

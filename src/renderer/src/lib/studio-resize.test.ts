@@ -49,11 +49,29 @@ describe('point remapping', () => {
     expect(right.y).toBeGreaterThan(0) // below centre
   })
 
-  it('is symmetric — portrait back to landscape undoes the move', () => {
-    const there = resizeContext(1920, 1080, 1080, 1920)
-    const back = resizeContext(1080, 1920, 1920, 1080)
-    const once = mapPoint(there, -500, 0)
-    expect(mapPoint(back, once.x, once.y)).toEqual({ x: -500, y: 0 })
+  /** The bug that broke the vertical ad: a centred stack must stay stacked. */
+  it('leaves a vertical stack stacked instead of splaying it sideways', () => {
+    const ctx = resizeContext(1920, 1080, 1080, 1920)
+    // An eyebrow above the headline and a subtitle below it.
+    const above = mapPoint(ctx, 0, -288)
+    const below = mapPoint(ctx, 0, 206)
+    expect(above.x).toBe(0)
+    expect(below.x).toBe(0)
+    expect(above.y).toBeLessThan(0) // still above centre
+    expect(below.y).toBeGreaterThan(0) // still below centre
+  })
+
+  it('restacks only the axis that dominates the placement', () => {
+    const ctx = resizeContext(1920, 1080, 1080, 1920)
+    // Mostly-horizontal placement restacks: the big offset moves to y, and the
+    // small vertical one carries across to x.
+    const sideways = mapPoint(ctx, -600, 40)
+    expect(sideways.y).toBeLessThan(-500)
+    expect(Math.abs(sideways.x)).toBeLessThan(100)
+    // Mostly-vertical placement is left alone: it stays above centre.
+    const stacked = mapPoint(ctx, 40, -400)
+    expect(stacked.y).toBeLessThan(0)
+    expect(Math.abs(stacked.x)).toBeLessThan(100)
   })
 })
 
