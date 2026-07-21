@@ -96,12 +96,19 @@ function buildServer(win: BrowserWindow): McpServer {
           .optional()
           .describe('Open the design as a canvas in the app for hand finishing. Default true.'),
         name: z.string().optional().describe('Tab name for the canvas opened in the app.'),
+        previewWidth: z
+          .number()
+          .optional()
+          .describe(
+            'Width of the RETURNED image (default 640; 0 = full resolution). The app always ' +
+            'gets the full-res document — this only shrinks the wire copy you look at.',
+          ),
       },
     },
-    async ({ doc, templateId, openInApp, name }) => {
+    async ({ doc, templateId, openInApp, name, previewWidth }) => {
       const r = await callRenderer<RenderResult>(
         win,
-        `window.__studioMcp.render(${JSON.stringify(doc ?? {})}, ${JSON.stringify(templateId ?? null)} ?? undefined, ${JSON.stringify(openInApp ?? true)}, ${JSON.stringify(name ?? null)} ?? undefined)`,
+        `window.__studioMcp.render(${JSON.stringify(doc ?? {})}, ${JSON.stringify(templateId ?? null)} ?? undefined, ${JSON.stringify(openInApp ?? true)}, ${JSON.stringify(name ?? null)} ?? undefined, ${JSON.stringify(previewWidth ?? 640)})`,
       )
       if (openInApp !== false && !win.isDestroyed()) {
         // Bring the app forward so the user sees what was just made.
@@ -187,6 +194,33 @@ function buildServer(win: BrowserWindow): McpServer {
         )} ?? undefined, ${JSON.stringify(anchors ?? null)} ?? undefined)`,
       )
       return { content: [{ type: 'text', text: JSON.stringify(m, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'analyze',
+    {
+      title: 'Analyze a design',
+      description:
+        'Numeric vision — judge a design without pulling the image back. Returns, for the given ' +
+        'document: contrast of every text layer against the pixels actually behind it (≥4.5 ' +
+        'reads), its height at the 168px feed size (≥10px reads), visual-weight balance per ' +
+        'quadrant with the centre of mass, the dominant palette with coverage, overlapping ' +
+        'layer boxes, safe-area violations, and ink coverage. Iterate against these numbers ' +
+        'between renders — render once at the end to look, not five times to guess.',
+      inputSchema: {
+        doc: z.any().optional().describe('Partial StudioDoc object'),
+        templateId: z.string().optional().describe('Template to start from'),
+      },
+    },
+    async ({ doc, templateId }) => {
+      const a = await callRenderer<unknown>(
+        win,
+        `window.__studioMcp.analyze(${JSON.stringify(doc ?? {})}, ${JSON.stringify(
+          templateId ?? null,
+        )} ?? undefined)`,
+      )
+      return { content: [{ type: 'text', text: JSON.stringify(a, null, 2) }] }
     },
   )
 

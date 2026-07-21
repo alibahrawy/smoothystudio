@@ -393,3 +393,137 @@ export const FONT_GUIDE: Array<{ group: string; fonts: string[]; useFor: string 
     useFor: 'Use sparingly and deliberately — casual, handmade or vintage-formal registers.',
   },
 ]
+
+/**
+ * Named looks a working designer actually reaches for — effect COMBINATIONS
+ * with the doc fragments that produce them, not descriptions of single tools.
+ *
+ * The effect catalog says what each tool does; this says which tools go
+ * together and why. An agent that has only the catalog rediscovers the same
+ * two moves every time (drop shadow + gradient background). Each recipe below
+ * produces a distinct, recognisable look and names the pitfall that ruins it.
+ */
+export const PLAYBOOK: Array<{
+  name: string
+  when: string
+  how: string
+  fragment: Record<string, unknown>
+  pitfall: string
+}> = [
+  {
+    name: 'Depth stack',
+    when: 'A cut-out subject and a headline that must both read — the default thumbnail grammar.',
+    how:
+      'Radial gradient background (dark rim, warmer centre) → soft glow behind the subject in an ' +
+      'accent colour → subject → headline OVERLAPPING the subject by 10–20% so the layers ' +
+      'interlock instead of sitting in separate columns. layerOrder puts text above image.',
+    fragment: {
+      canvas: { bg: 'gradient', gradientDirection: 'radial' },
+      image: { glow: { enabled: true, blur: 120, strength: 2 } },
+      layerOrder: ['text', 'image'],
+    },
+    pitfall: 'Glow in the same hue as the background disappears — pick the complementary accent.',
+  },
+  {
+    name: 'Knockout text',
+    when: 'Imagery is strong and words are secondary — the photo shows through the letters.',
+    how:
+      "A photo layer masked to the title's silhouette: put the image ABOVE a bold dark canvas, " +
+      "set image.fx.mask = { enabled: true, sourceId: 'text' }. Use the heaviest face you have; " +
+      'thin strokes leave nothing to see through.',
+    fragment: {
+      font: { family: 'Impact', size: 260 },
+      image: { fx: { mask: { enabled: true, sourceId: 'text' } } },
+      layerOrder: ['image', 'text'],
+    },
+    pitfall: 'Busy photos kill it — the eye needs one dominant colour region inside the glyphs.',
+  },
+  {
+    name: 'Duotone poster',
+    when: 'A flat, editorial, screen-print look; also rescues low-quality photos.',
+    how:
+      'Duotone on the photo (dark shadows in the background hue, highlights in the accent), plus ' +
+      'coarse noise and a slight contrast lift in the grade. Type in the same two colours only.',
+    fragment: {
+      image: {
+        fx: { duotone: { enabled: true, shadowColor: '#1A1040', highlightColor: '#FF5A36', amount: 100 } },
+        grade: { enabled: true, contrast: 115 },
+      },
+      canvasFx: { noise: { enabled: true, amount: 12, size: 2, mono: true } },
+    },
+    pitfall: 'A third colour anywhere breaks the system — even the logo should take one of the two.',
+  },
+  {
+    name: 'Motion echo',
+    when: 'Anything about speed, progress, or before/after — implies movement in a still.',
+    how:
+      'Echo on the subject (4–6 copies, offset along the travel direction, opacity decay ~60) ' +
+      'UNDER a sharp final copy; tilt the whole stack with transform.rotate for energy.',
+    fragment: {
+      image: {
+        fx: {
+          echo: { enabled: true, copies: 5, offsetX: -40, offsetY: 0, scaleStep: 97, opacityDecay: 60 },
+          transform: { enabled: true, rotate: -6 },
+        },
+      },
+    },
+    pitfall: 'Echo over a textured background reads as smear — keep the trail zone calm.',
+  },
+  {
+    name: 'Neon night',
+    when: 'Tech, gaming, hidden-feature energy — glow as the light source.',
+    how:
+      'Near-black canvas, headline with a saturated glow (strength 3+) and NO shadow, thin bright ' +
+      'stroke in the glow colour on key shapes, vignette pulling the corners down.',
+    fragment: {
+      canvas: { bg: 'solid', bgColor: '#07070C' },
+      glow: { enabled: true, blur: 40, strength: 3, color: '#39D9F5' },
+      canvasFx: { vignette: { enabled: true, amount: -55, size: 45, feather: 70 } },
+    },
+    pitfall: 'Glow plus drop shadow reads as mud — a light source does not cast its own shadow.',
+  },
+  {
+    name: 'Sticker cutout',
+    when: 'Playful, MrBeast-adjacent energy; makes any subject feel designed.',
+    how:
+      'Thick white stroke around the cut-out subject (width 14–20), hard small offset shadow, ' +
+      'saturated flat or radial background. Rotate the subject 3–8° so it feels placed by hand.',
+    fragment: {
+      image: {
+        stroke: { enabled: true, width: 16, color: '#FFFFFF' },
+        shadow: { enabled: true, blur: 0, x: 10, y: 12, color: '#00000088' },
+        fx: { transform: { enabled: true, rotate: 5 } },
+      },
+    },
+    pitfall: 'Soft blurry shadows undo the sticker illusion — keep blur at 0 and offset hard.',
+  },
+  {
+    name: 'Split versus',
+    when: 'Comparisons, X-vs-Y, old-vs-new.',
+    how:
+      'Two full-height shapes as colour fields meeting mid-canvas (or mode: "split"), one subject ' +
+      'per side, headline centred ACROSS the seam on a plate or with a heavy stroke so it owns ' +
+      'both halves.',
+    fragment: {
+      extraShapes: [
+        { id: 'left', type: 'square', width: 960, height: 1080, x: -480, y: 0, color: '#15243B' },
+        { id: 'right', type: 'square', width: 960, height: 1080, x: 480, y: 0, color: '#3B1520' },
+      ],
+    },
+    pitfall: 'Equal visual weight on both sides is static — let the "winner" side be brighter.',
+  },
+  {
+    name: 'Big number',
+    when: 'Listicles, prices, percentages — the number IS the thumbnail.',
+    how:
+      'One numeral at 400–600px in the heaviest face, gradient or accent fill, subject tucked ' +
+      'behind or beside it; supporting words tiny by comparison (the contrast in scale is the ' +
+      'design).',
+    fragment: {
+      text: '7',
+      font: { family: 'Arial Black', size: 520 },
+      material: { type: 'gradient', gradientDirection: 'vertical' },
+    },
+    pitfall: 'Two big things fight — if the number is huge the subject must be clearly second.',
+  },
+]

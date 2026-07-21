@@ -13,8 +13,9 @@ import {
   type StudioDoc,
 } from './studio'
 import { STUDIO_TEMPLATES, templateById } from './studio-templates'
-import { DESIGN_GUIDANCE, EFFECT_DOCS, FONT_GUIDE, LAYER_DOCS } from './studio-docs'
+import { DESIGN_GUIDANCE, EFFECT_DOCS, FONT_GUIDE, LAYER_DOCS, PLAYBOOK } from './studio-docs'
 import { measureDoc, resolveAnchor, type Anchor, type DocMeasurement } from './studio-measure'
+import { analyzeDoc, type DocAnalysis } from './studio-analyze'
 import { useAppStore } from '../store'
 
 /**
@@ -40,6 +41,33 @@ function resolveDoc(patch: unknown, templateId?: string): StudioDoc {
     ? mergeDoc(defaultStudioDoc(), templateById(templateId)?.doc ?? {})
     : defaultStudioDoc()
   return mergeDoc(base, patch)
+}
+
+/**
+ * Downscale a full-res render for the wire.
+ *
+ * The full 1920×1080 PNG is megabytes of base64 per round trip, and an agent
+ * looking at a render is judging composition, not pixels. The full-res
+ * document still opens in the app; only the returned image shrinks.
+ */
+function downscalePng(pngBase64: string, srcW: number, srcH: number, maxW: number): Promise<{ pngBase64: string; width: number; height: number }> {
+  if (maxW <= 0 || srcW <= maxW) return Promise.resolve({ pngBase64, width: srcW, height: srcH })
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const w = maxW
+      const h = Math.max(1, Math.round((srcH / srcW) * maxW))
+      const off = document.createElement('canvas')
+      off.width = w
+      off.height = h
+      const ctx = off.getContext('2d')
+      if (!ctx) return resolve({ pngBase64, width: srcW, height: srcH })
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve({ pngBase64: off.toDataURL('image/png').split(',')[1] ?? '', width: w, height: h })
+    }
+    img.onerror = () => resolve({ pngBase64, width: srcW, height: srcH })
+    img.src = `data:image/png;base64,${pngBase64}`
+  })
 }
 
 /**
@@ -167,6 +195,22 @@ export const studioMcp = {
           'then render with it back on.',
       },
       designGuidance: DESIGN_GUIDANCE,
+      playbook: {
+        note:
+          'Named looks that effect COMBINATIONS produce — reach here before composing, pick the ' +
+          'recipe that fits the video, then adapt. Each carries the doc fragment that makes it ' +
+          'and the pitfall that ruins it. Vary between designs: an agent that only ever does ' +
+          'drop-shadow-on-gradient is leaving most of this vocabulary unused.',
+        recipes: PLAYBOOK,
+      },
+      workflow: {
+        note:
+          'The loop that converges fastest: capabilities → pick a playbook recipe → measure (with ' +
+          'anchors) to place things from real boxes → analyze to check contrast, feed-size ' +
+          'legibility, balance and overlaps AS NUMBERS → fix what the numbers flag → render once ' +
+          'to look, small preview by default. Renders are for composition judgement; analyze is ' +
+          'for everything countable. Text needs contrast ≥ 4.5 and ≥ 10px height at feed size.',
+      },
       documentShape: {
         note:
           'Send a PARTIAL document; it is merged one level deep over the defaults (or over a template when templateId is given).',
@@ -185,12 +229,33 @@ export const studioMcp = {
    * as a canvas in the running app, so the agent's render is a starting point
    * the user can finish by hand rather than a dead-end file.
    */
-  async render(patch: unknown, templateId?: string, openInApp = true, name?: string): Promise<McpRenderResult> {
+  async render(
+    patch: unknown,
+    templateId?: string,
+    openInApp = true,
+    name?: string,
+    previewWidth = 640,
+  ): Promise<McpRenderResult> {
     const doc = resolveDoc(patch, templateId)
     await Promise.all([ensureFonts(doc), ensureImages(doc)])
     const png = renderDocToPngBase64(doc)
     if (openInApp) useAppStore.getState().openDocInStudio(name ?? 'From Claude', doc)
-    return { pngBase64: png, width: doc.canvas.width, height: doc.canvas.height }
+    const preview = await downscalePng(png, doc.canvas.width, doc.canvas.height, previewWidth)
+    // Report the DOCUMENT size; the preview is just the wire copy.
+    return { ...preview, width: doc.canvas.width, height: doc.canvas.height }
+  },
+
+  /**
+   * Numeric vision: judge a design without pulling the pixels back. Contrast
+   * of every text layer against what is really behind it, text height at the
+   * 168px feed size, visual-weight balance, dominant palette, box overlaps,
+   * and safe-area violations — the checks a designer performs by eye, as
+   * numbers an agent can iterate against between renders.
+   */
+  async analyze(patch: unknown, templateId?: string): Promise<DocAnalysis> {
+    const doc = resolveDoc(patch, templateId)
+    await Promise.all([ensureFonts(doc), ensureImages(doc)])
+    return analyzeDoc(doc)
   },
 
   /**
