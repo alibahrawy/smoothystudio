@@ -1,6 +1,6 @@
 # SmoothyStudio
 
-[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%7C%20Intel-000?logo=apple&logoColor=white)](https://github.com/alibahrawy/smoothystudio/releases)
+[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon%20%7C%20Intel-000?logo=apple&logoColor=white)](https://github.com/alibahrawy/SmoothyStudio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2E7BF6.svg)](LICENSE)
 
 > **Status:** macOS only for now. Windows and Linux targets are already configured in

@@ -100,8 +100,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/alibahrawy/smoothystudio.git"
+    "url": "https://github.com/alibahrawy/SmoothyStudio.git"
   },
   "license": "MIT",
-  "homepage": "https://github.com/alibahrawy/smoothystudio"
+  "homepage": "https://github.com/alibahrawy/SmoothyStudio"
 }
