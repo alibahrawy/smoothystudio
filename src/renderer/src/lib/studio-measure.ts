@@ -47,7 +47,7 @@ const PRIMARIES = ['logo', 'border', 'image', 'shape', 'text', 'icon'] as const
  * `removedPrimaries`, which that function actually honours, plus emptying the
  * extras.
  */
-function isolate(doc: StudioDoc, id: string): StudioDoc {
+export function isolate(doc: StudioDoc, id: string): StudioDoc {
   const isPrimary = (PRIMARIES as readonly string[]).includes(id)
   const keepExtra = <T extends { id: string }>(list: T[] | undefined): T[] =>
     (list ?? []).filter((e) => e.id === id)
@@ -107,41 +107,44 @@ function opaqueBounds(
  * by, and measuring a 1920×1080 document layer by layer at full resolution is
  * far slower than it needs to be.
  */
-export function measureDoc(doc: StudioDoc, sampleWidth = 640): DocMeasurement {
+export function measureLayer(doc: StudioDoc, id: string, sampleWidth = 640): LayerBox {
   const { width, height } = doc.canvas
   const scale = Math.min(1, sampleWidth / Math.max(1, width))
   const sw = Math.max(1, Math.round(width * scale))
   const sh = Math.max(1, Math.round(height * scale))
+  const empty: LayerBox = { id, x: 0, y: 0, width: 0, height: 0, centerX: 0, centerY: 0, empty: true }
 
-  const layers: LayerBox[] = []
-  for (const id of effectiveLayerOrder(doc)) {
-    const off = document.createElement('canvas')
-    off.width = sw
-    off.height = sh
-    const ctx = off.getContext('2d', { willReadFrequently: true })
-    if (!ctx) continue
-    ctx.scale(scale, scale)
-    renderStudioDoc(ctx, isolate(doc, id))
-    const b = opaqueBounds(ctx, sw, sh)
-    if (!b) {
-      layers.push({ id, x: 0, y: 0, width: 0, height: 0, centerX: 0, centerY: 0, empty: true })
-      continue
-    }
-    const x = Math.round(b.x / scale)
-    const y = Math.round(b.y / scale)
-    const w = Math.round(b.width / scale)
-    const h = Math.round(b.height / scale)
-    layers.push({
-      id,
-      x,
-      y,
-      width: w,
-      height: h,
-      centerX: Math.round(x + w / 2 - width / 2),
-      centerY: Math.round(y + h / 2 - height / 2),
-      empty: false,
-    })
+  const off = document.createElement('canvas')
+  off.width = sw
+  off.height = sh
+  const ctx = off.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return empty
+  ctx.scale(scale, scale)
+  renderStudioDoc(ctx, isolate(doc, id))
+  const b = opaqueBounds(ctx, sw, sh)
+  if (!b) return empty
+
+  const x = Math.round(b.x / scale)
+  const y = Math.round(b.y / scale)
+  const w = Math.round(b.width / scale)
+  const h = Math.round(b.height / scale)
+  return {
+    id,
+    x,
+    y,
+    width: w,
+    height: h,
+    centerX: Math.round(x + w / 2 - width / 2),
+    centerY: Math.round(y + h / 2 - height / 2),
+    empty: false,
   }
+}
+
+export function measureDoc(doc: StudioDoc, sampleWidth = 640): DocMeasurement {
+  const { width, height } = doc.canvas
+  const layers: LayerBox[] = effectiveLayerOrder(doc).map((id) =>
+    measureLayer(doc, id, sampleWidth),
+  )
 
   const safe = Math.max(0, doc.align?.safeZone ?? 0)
   return {

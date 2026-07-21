@@ -1,6 +1,8 @@
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState,
 } from 'react'
+import { canMoveLayer, hitTestDoc, layerPosition, setLayerPosition } from '../lib/studio-hit'
+import { measureLayer, type LayerBox } from '../lib/studio-measure'
 import * as Popover from '@radix-ui/react-popover'
 import {
   Download, Loader2, Save, Trash2, Check, Undo2, Redo2, Plus, X, Upload, Image as ImageIcon,
@@ -203,6 +205,16 @@ export function Studio(): JSX.Element {
   }, [])
   const canUndo = history.current.index > 0
   const canRedo = history.current.index < history.current.stack.length - 1
+
+  // Reveal the selected layer's card. `nearest` means clicking a card that is
+  // already on screen does not scroll, so only a canvas pick actually moves the
+  // panel.
+  useEffect(() => {
+    if (!selectedLayerId) return
+    document
+      .getElementById(LAYER_CARD_ID(selectedLayerId))
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedLayerId])
 
   // ── Fonts: curated + installed (Local Font Access) + custom uploads ──
   useEffect(() => {
@@ -1968,6 +1980,9 @@ export function Studio(): JSX.Element {
           redrawNonce={redrawNonce}
           picking={picking}
           onPickColor={handlePickedColor}
+          selectedId={selectedLayerId}
+          onSelect={setSelectedLayerId}
+          onMoveTo={(id, x, y) => setDoc((d) => setLayerPosition(d, id, x, y))}
         />
         {doc.mode === 'batch' ? (
           <BatchGallery
@@ -2182,6 +2197,9 @@ function StudioPreview({
   redrawNonce,
   picking,
   onPickColor,
+  selectedId,
+  onSelect,
+  onMoveTo,
 }: {
   doc: StudioDoc
   onDrop: (e: React.DragEvent) => void
@@ -2189,11 +2207,112 @@ function StudioPreview({
   /** Eyedropper armed — the next click samples a pixel instead of doing nothing. */
   picking?: boolean
   onPickColor?: (hex: string) => void
+  selectedId?: string | null
+  /** Canvas click picked a layer, or null for a click on empty canvas. */
+  onSelect?: (id: string | null) => void
+  /** Drag moved a layer to an absolute position, in that layer's own fields. */
+  onMoveTo?: (id: string, x: number, y: number) => void
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [fit, setFit] = useState({ width: 0, height: 0 })
   const [dragOver, setDragOver] = useState(false)
+
+  // ── Selection outline + direct dragging ──
+  // The outline is an overlay rather than something drawn into the canvas: the
+  // canvas IS the exported image, and selection chrome must never reach a PNG.
+  const [box, setBox] = useState<LayerBox | null>(null)
+  const [nudge, setNudge] = useState<{ x: number; y: number } | null>(null)
+  const [overBox, setOverBox] = useState(false)
+  const [measureNonce, bumpMeasure] = useReducer((n: number) => n + 1, 0)
+  const dragRef = useRef<{
+    id: string
+    sx: number
+    sy: number
+    from: { x: number; y: number }
+  } | null>(null)
+
+  const scale = fit.width ? fit.width / doc.canvas.width : 1
+  const scaleRef = useRef(scale)
+  scaleRef.current = scale
+
+  useEffect(() => {
+    if (!selectedId) {
+      setBox(null)
+      return
+    }
+    // While dragging, the outline follows the pointer via `nudge` instead —
+    // re-measuring on every pointermove would re-render the layer each frame.
+    if (dragRef.current) return
+    let cancelled = false
+    const raf = requestAnimationFrame(() => {
+      if (!cancelled) setBox(measureLayer(doc, selectedId))
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+    }
+  }, [doc, selectedId, measureNonce])
+
+  /** Pointer position in the document's own pixel space. */
+  const toDoc = (e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * doc.canvas.width,
+      y: ((e.clientY - rect.top) / rect.height) * doc.canvas.height,
+    }
+  }
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    if (picking || e.button !== 0 || !onSelect) return
+    const p = toDoc(e)
+    const id = hitTestDoc(doc, p.x, p.y)
+    onSelect(id)
+    if (!id || !onMoveTo || !canMoveLayer(doc, id)) return
+    const from = layerPosition(doc, id)
+    if (!from) return
+    // Capture keeps the drag alive if the pointer leaves the canvas. It throws
+    // when the pointer is no longer active, which must not abort the drag.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      /* not capturable — the drag still works while the pointer stays over the canvas */
+    }
+    dragRef.current = { id, sx: e.clientX, sy: e.clientY, from }
+    setNudge({ x: 0, y: 0 })
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    const d = dragRef.current
+    if (!d) {
+      // Cheap rect test against the selected box only — a full hit test on every
+      // pointermove would re-render every layer, and this just drives the cursor.
+      if (!box || box.empty || picking) return
+      const p = toDoc(e)
+      const inside =
+        p.x >= box.x && p.x <= box.x + box.width && p.y >= box.y && p.y <= box.y + box.height
+      if (inside !== overBox) setOverBox(inside)
+      return
+    }
+    if (!onMoveTo) return
+    const s = scaleRef.current || 1
+    const dx = (e.clientX - d.sx) / s
+    const dy = (e.clientY - d.sy) / s
+    setNudge({ x: dx, y: dy })
+    onMoveTo(d.id, d.from.x + dx, d.from.y + dy)
+  }
+
+  const endDrag = (e: React.PointerEvent<HTMLCanvasElement>): void => {
+    if (!dragRef.current) return
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* never captured */
+    }
+    dragRef.current = null
+    setNudge(null)
+    bumpMeasure() // the doc stopped changing — re-measure the settled box
+  }
 
   const samplePixel = (e: React.MouseEvent<HTMLCanvasElement>): void => {
     if (!picking || !onPickColor) return
@@ -2281,21 +2400,45 @@ function StudioPreview({
         dragOver ? 'border-primary bg-primary-soft' : 'border-border',
       )}
     >
-      <canvas
-        ref={canvasRef}
-        width={doc.canvas.width}
-        height={doc.canvas.height}
-        onClick={samplePixel}
-        style={{
-          width: fit.width || undefined,
-          height: fit.height || undefined,
-          ...(doc.canvas.bg === 'transparent' ? checker : {}),
-        }}
-        className={cn(
-          'rounded-sm border border-border/60 shadow-sm',
-          picking && 'cursor-crosshair ring-2 ring-primary',
-        )}
-      />
+      <div className="relative" style={{ width: fit.width || undefined, height: fit.height || undefined }}>
+        <canvas
+          ref={canvasRef}
+          width={doc.canvas.width}
+          height={doc.canvas.height}
+          onClick={samplePixel}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          style={{
+            width: fit.width || undefined,
+            height: fit.height || undefined,
+            ...(doc.canvas.bg === 'transparent' ? checker : {}),
+          }}
+          className={cn(
+            'touch-none rounded-sm border border-border/60 shadow-sm',
+            picking
+              ? 'cursor-crosshair ring-2 ring-primary'
+              : nudge
+                ? 'cursor-grabbing'
+                : overBox
+                  ? 'cursor-move'
+                  : 'cursor-default',
+          )}
+        />
+        {box && !box.empty ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute rounded-[2px] ring-1 ring-primary"
+            style={{
+              left: (box.x + (nudge?.x ?? 0)) * scale,
+              top: (box.y + (nudge?.y ?? 0)) * scale,
+              width: box.width * scale,
+              height: box.height * scale,
+            }}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -2335,6 +2478,9 @@ interface LayerCardControls {
  * chip in the header, and an optional enable switch for items that can be
  * turned off entirely.
  */
+/** DOM id of a layer's card, so selecting on the canvas can reveal it. */
+const LAYER_CARD_ID = (layerId: string): string => `layer-card-${layerId}`
+
 function ItemCard({
   title,
   icon,
@@ -2386,10 +2532,12 @@ function ItemCard({
   return (
     <section
       ref={sortableId ? sortable.setNodeRef : undefined}
+      // Lets a canvas click scroll this card into view; see LAYER_CARD_ID.
+      id={sortableId ? LAYER_CARD_ID(sortableId) : undefined}
       style={style}
       className={cn(
         'rounded-lg border p-3 transition-colors duration-120',
-        isSelected ? 'border-border bg-primary-soft' : 'border-border bg-card',
+        isSelected ? 'border-primary bg-primary-soft' : 'border-border bg-card',
         sortableId && sortable.isDragging && 'relative z-10 opacity-90 shadow-md',
       )}
     >
