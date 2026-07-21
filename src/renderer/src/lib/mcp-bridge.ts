@@ -4,7 +4,9 @@ import {
   defaultColorGrade,
   defaultStudioDoc,
   exportAllFiles,
+  getCachedImage,
   mergeDoc,
+  preloadImage,
   renderDocToPngBase64,
   FX_PIPELINE_KEYS,
   type StudioDoc,
@@ -36,6 +38,38 @@ function resolveDoc(patch: unknown, templateId?: string): StudioDoc {
     ? mergeDoc(defaultStudioDoc(), templateById(templateId)?.doc ?? {})
     : defaultStudioDoc()
   return mergeDoc(base, patch)
+}
+
+/**
+ * Wait for every image the document references.
+ *
+ * The renderer draws pictures from a cache that the UI fills as a side effect
+ * of rendering; nothing populates it on this path, so without this an
+ * agent-supplied photo or logo silently renders as nothing at all.
+ */
+async function ensureImages(doc: StudioDoc): Promise<void> {
+  const urls = [
+    doc.canvas.imageDataUrl,
+    doc.icon?.dataUrl,
+    doc.image?.dataUrl,
+    doc.logo?.kind === 'image' ? doc.logo.dataUrl : null,
+    ...(doc.extraIcons ?? []).map((i) => i.dataUrl),
+    ...(doc.extraImages ?? []).map((i) => i.dataUrl),
+    ...(doc.extraLogos ?? []).map((l) => (l.kind === 'image' ? l.dataUrl : null)),
+  ].filter((u): u is string => typeof u === 'string' && u.length > 0)
+
+  await Promise.all(
+    [...new Set(urls)].map(
+      (url) =>
+        new Promise<void>((resolve) => {
+          if (getCachedImage(url)) return resolve()
+          // Resolve either way — a broken URL should not hang the render.
+          const done = (): void => resolve()
+          preloadImage(url, done)
+          setTimeout(done, 10_000)
+        }),
+    ),
+  )
 }
 
 /** Wait for the fonts a document asks for, so text isn't rendered in a
@@ -107,7 +141,7 @@ export const studioMcp = {
    */
   async render(patch: unknown, templateId?: string, openInApp = true, name?: string): Promise<McpRenderResult> {
     const doc = resolveDoc(patch, templateId)
-    await ensureFonts(doc)
+    await Promise.all([ensureFonts(doc), ensureImages(doc)])
     const png = renderDocToPngBase64(doc)
     if (openInApp) useAppStore.getState().openDocInStudio(name ?? 'From Claude', doc)
     return { pngBase64: png, width: doc.canvas.width, height: doc.canvas.height }
@@ -128,7 +162,7 @@ export const studioMcp = {
     const out: McpRenderResult[] = []
     for (const [i, o] of overrides.entries()) {
       const doc = mergeDoc(base, o)
-      await ensureFonts(doc)
+      await Promise.all([ensureFonts(doc), ensureImages(doc)])
       out.push({
         pngBase64: renderDocToPngBase64(doc),
         width: doc.canvas.width,
@@ -142,7 +176,7 @@ export const studioMcp = {
   /** Batch/bullet "export all" — N titles from one styled document. */
   async renderBatch(patch: unknown, templateId?: string): Promise<Array<{ name: string; pngBase64: string }>> {
     const doc = resolveDoc(patch, templateId)
-    await ensureFonts(doc)
+    await Promise.all([ensureFonts(doc), ensureImages(doc)])
     return exportAllFiles(doc).map((f) => ({ name: f.name, pngBase64: f.dataBase64 }))
   },
 }
