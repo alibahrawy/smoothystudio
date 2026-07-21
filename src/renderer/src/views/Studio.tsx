@@ -3,6 +3,7 @@ import {
 } from 'react'
 import { canMoveLayer, hitTestDoc, layerPosition, setLayerPosition } from '../lib/studio-hit'
 import { measureLayer, type LayerBox } from '../lib/studio-measure'
+import { snapDrag, type SnapGuides } from '../lib/studio-snap'
 import * as Popover from '@radix-ui/react-popover'
 import {
   Download, Loader2, Save, Trash2, Check, Undo2, Redo2, Plus, X, Upload, Image as ImageIcon,
@@ -2224,12 +2225,15 @@ function StudioPreview({
   const [box, setBox] = useState<LayerBox | null>(null)
   const [nudge, setNudge] = useState<{ x: number; y: number } | null>(null)
   const [overBox, setOverBox] = useState(false)
+  const [guides, setGuides] = useState<SnapGuides | null>(null)
   const [measureNonce, bumpMeasure] = useReducer((n: number) => n + 1, 0)
   const dragRef = useRef<{
     id: string
     sx: number
     sy: number
     from: { x: number; y: number }
+    /** The layer's box at drag start — what snapping is computed against. */
+    startBox: LayerBox | null
   } | null>(null)
 
   const scale = fit.width ? fit.width / doc.canvas.width : 1
@@ -2278,7 +2282,11 @@ function StudioPreview({
     } catch {
       /* not capturable — the drag still works while the pointer stays over the canvas */
     }
-    dragRef.current = { id, sx: e.clientX, sy: e.clientY, from }
+    // Measure now rather than reusing `box`: the click may have just changed
+    // the selection, and snapping needs the box of the layer being dragged.
+    const startBox = measureLayer(doc, id)
+    dragRef.current = { id, sx: e.clientX, sy: e.clientY, from, startBox: startBox.empty ? null : startBox }
+    if (!startBox.empty) setBox(startBox)
     setNudge({ x: 0, y: 0 })
   }
 
@@ -2296,8 +2304,18 @@ function StudioPreview({
     }
     if (!onMoveTo) return
     const s = scaleRef.current || 1
-    const dx = (e.clientX - d.sx) / s
-    const dy = (e.clientY - d.sy) / s
+    let dx = (e.clientX - d.sx) / s
+    let dy = (e.clientY - d.sy) / s
+    // Snap to the canvas centre lines and edges — hold Cmd/Ctrl to drag free.
+    // The threshold is in screen pixels so the pull feels the same at any zoom.
+    if (d.startBox && !e.metaKey && !e.ctrlKey) {
+      const snapped = snapDrag(d.startBox, dx, dy, doc.canvas.width, doc.canvas.height, 8 / s)
+      dx = snapped.dx
+      dy = snapped.dy
+      setGuides(snapped.guides.v !== null || snapped.guides.h !== null ? snapped.guides : null)
+    } else {
+      setGuides(null)
+    }
     setNudge({ x: dx, y: dy })
     onMoveTo(d.id, d.from.x + dx, d.from.y + dy)
   }
@@ -2311,6 +2329,7 @@ function StudioPreview({
     }
     dragRef.current = null
     setNudge(null)
+    setGuides(null)
     bumpMeasure() // the doc stopped changing — re-measure the settled box
   }
 
@@ -2436,6 +2455,20 @@ function StudioPreview({
               width: box.width * scale,
               height: box.height * scale,
             }}
+          />
+        ) : null}
+        {guides?.v !== null && guides?.v !== undefined ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 w-px bg-primary/70"
+            style={{ left: guides.v * scale }}
+          />
+        ) : null}
+        {guides?.h !== null && guides?.h !== undefined ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 h-px bg-primary/70"
+            style={{ top: guides.h * scale }}
           />
         ) : null}
       </div>
